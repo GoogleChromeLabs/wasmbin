@@ -2,26 +2,12 @@ use crate::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instructions::Expression;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
 use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::builtins::Blob;
 
+#[derive(Wasmbin)]
 pub struct CustomSection {
     pub name: String,
     pub data: Vec<u8>,
-}
-
-impl WasmbinEncode for CustomSection {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        self.name.encode(w)?;
-        w.write_all(&self.data)
-    }
-}
-
-impl WasmbinDecode for CustomSection {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
-        let name = String::decode(r)?;
-        let mut data = Vec::new();
-        r.read_to_end(&mut data)?;
-        Ok(CustomSection { name, data })
-    }
 }
 
 #[derive(Wasmbin)]
@@ -92,70 +78,50 @@ pub struct Func {
     pub body: Expression,
 }
 
-pub struct Code {
-    pub func: Func,
-}
-
-impl WasmbinEncode for Code {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        let mut encoded = Vec::new();
-        self.func.encode(&mut encoded)?;
-        encoded.encode(w)
-    }
-}
-
-impl WasmbinDecode for Code {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
-        u32::decode(r)?; // size
-        let func = Func::decode(r)?;
-        Ok(Code { func })
-    }
-}
-
 #[derive(Wasmbin)]
 pub struct Data {
     pub data: MemIdx,
     pub offset: Expression,
-    pub init: Vec<u8>,
+    pub init: Blob<Vec<u8>>,
 }
 
 #[derive(Wasmbin)]
 pub enum Section {
     #[wasmbin(discriminant = 0)]
-    Custom(CustomSection),
+    Custom(Blob<CustomSection>),
 
     #[wasmbin(discriminant = 1)]
-    Type(Vec<FuncType>),
+    Type(Blob<Vec<FuncType>>),
 
     #[wasmbin(discriminant = 2)]
-    Import(Vec<Import>),
+    Import(Blob<Vec<Import>>),
 
     #[wasmbin(discriminant = 3)]
-    Function(Vec<TypeIdx>),
+    Function(Blob<Vec<TypeIdx>>),
 
     #[wasmbin(discriminant = 4)]
-    Table(Vec<TableType>),
+    Table(Blob<Vec<TableType>>),
 
     #[wasmbin(discriminant = 5)]
-    Memory(Vec<MemType>),
+    Memory(Blob<Vec<MemType>>),
 
     #[wasmbin(discriminant = 6)]
-    Global(Vec<Global>),
+    Global(Blob<Vec<Global>>),
 
     #[wasmbin(discriminant = 7)]
-    Export(Vec<Export>),
+    Export(Blob<Vec<Export>>),
 
     #[wasmbin(discriminant = 8)]
-    Start(FuncIdx),
+    Start(Blob<FuncIdx>),
 
     #[wasmbin(discriminant = 9)]
-    Element(Vec<Element>),
+    Element(Blob<Vec<Element>>),
 
     #[wasmbin(discriminant = 10)]
-    Code(Vec<Code>),
+    Code(Blob<Vec<Blob<Func>>>),
 
     #[wasmbin(discriminant = 11)]
-    Data(Vec<Data>),
+    Data(Blob<Vec<Data>>),
 }
 
 pub struct Module {

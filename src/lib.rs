@@ -24,6 +24,9 @@ pub enum DecodeError {
 
     #[error("Invalid module magic signature")]
     InvalidMagic,
+
+    #[error("Unrecognized data")]
+    UnrecognizedData,
 }
 
 pub trait WasmbinEncode {
@@ -33,6 +36,7 @@ pub trait WasmbinEncode {
     where
         Self: Sized,
     {
+        seq.len().encode(w)?;
         for item in seq {
             item.encode(w)?;
         }
@@ -43,7 +47,7 @@ pub trait WasmbinEncode {
 pub trait WasmbinDecode: Sized + WasmbinEncode {
     fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError>;
 
-    fn decode_seq(count: u32, r: &mut impl std::io::BufRead) -> Result<Vec<Self>, DecodeError> {
-        (0..count).map(|_| Self::decode(r)).collect()
+    fn decode_seq(r: &mut impl std::io::BufRead) -> Result<Vec<Self>, DecodeError> {
+        (0..u32::decode(r)?).map(|_| Self::decode(r)).collect()
     }
 }

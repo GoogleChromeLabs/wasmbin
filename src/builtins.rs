@@ -1,14 +1,51 @@
 use super::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 use std::convert::TryFrom;
 
+#[repr(transparent)]
+pub struct Blob<T>(pub T);
+
+impl<T> std::ops::Deref for Blob<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T> std::ops::DerefMut for Blob<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
+}
+
+impl<T: WasmbinEncode> WasmbinEncode for Blob<T> {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        let mut dest = Vec::new();
+        self.0.encode(&mut dest)?;
+        dest.len().encode(w)?;
+        w.write_all(&dest)
+    }
+}
+
+impl<T: WasmbinDecode> WasmbinDecode for Blob<T> {
+    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+        let size = u32::decode(r)?;
+        let mut taken = std::io::Read::take(r, size.into());
+        let value = T::decode(&mut taken)?;
+        if taken.limit() != 0 {
+            return Err(DecodeError::UnrecognizedData);
+        }
+        Ok(Blob(value))
+    }
+}
+
 impl<T: WasmbinEncode> WasmbinEncode for [T] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        u32::try_from(self.len()).unwrap().encode(w)?;
         T::encode_seq(self, w)
     }
 }
 
-impl<T: WasmbinEncode> WasmbinEncode for Vec<T> {
+impl<T> WasmbinEncode for Vec<T> where [T]: WasmbinEncode {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         self.as_slice().encode(w)
     }
@@ -16,14 +53,13 @@ impl<T: WasmbinEncode> WasmbinEncode for Vec<T> {
 
 impl<T: WasmbinDecode> WasmbinDecode for Vec<T> {
     fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
-        let count = u32::decode(r)?;
-        T::decode_seq(count, r)
+        T::decode_seq(r)
     }
 }
 
 impl WasmbinEncode for u8 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        Self::encode_seq(&[*self], w)
+        std::slice::from_ref(self).encode(w)
     }
 
     fn encode_seq(seq: &[u8], w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -33,14 +69,14 @@ impl WasmbinEncode for u8 {
 
 impl WasmbinDecode for u8 {
     fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
-        let mut dest = [0];
-        r.read_exact(&mut dest)?;
-        Ok(dest[0])
+        let mut dest = 0;
+        r.read_exact(std::slice::from_mut(&mut dest))?;
+        Ok(dest)
     }
 
-    fn decode_seq(count: u32, r: &mut impl std::io::BufRead) -> Result<Vec<Self>, DecodeError> {
-        let mut dest = vec![0; usize::try_from(count).unwrap()];
-        r.read_exact(&mut dest)?;
+    fn decode_seq(r: &mut impl std::io::BufRead) -> Result<Vec<Self>, DecodeError> {
+        let mut dest = Vec::new();
+        r.read_to_end(&mut dest)?;
         Ok(dest)
     }
 }
@@ -96,6 +132,18 @@ impl WasmbinDecode for i32 {
     }
 }
 
+impl WasmbinEncode for usize {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        u32::try_from(*self).unwrap().encode(w)
+    }
+}
+
+impl WasmbinDecode for usize {
+    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+        Ok(usize::try_from(u32::decode(r)?).unwrap())
+    }
+}
+
 impl WasmbinEncode for u64 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         leb128::write::unsigned(w, *self).map(|_| ())
@@ -122,7 +170,7 @@ impl WasmbinDecode for i64 {
 
 impl WasmbinEncode for str {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        self.as_bytes().encode(w)
+        Blob(self.as_bytes()).encode(w)
     }
 }
 
@@ -134,7 +182,7 @@ impl WasmbinEncode for String {
 
 impl WasmbinDecode for String {
     fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
-        Ok(String::from_utf8(<Vec<u8>>::decode(r)?)?)
+        Ok(String::from_utf8(Blob::decode(r)?.0)?)
     }
 }
 
