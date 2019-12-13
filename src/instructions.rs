@@ -29,7 +29,9 @@ impl std::ops::DerefMut for Expression {
 
 impl WasmbinEncode for Expression {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        Instruction::encode_seq(&self.0, w)?;
+        for instr in &self.0 {
+            instr.encode(w)?;
+        }
         SeqInstructionRepr::End.encode(w)
     }
 }
@@ -69,10 +71,14 @@ enum IfElseInstructionRepr {
 impl WasmbinEncode for IfElse {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         self.return_type.encode(w)?;
-        Instruction::encode_seq(&self.then, w)?;
+        for instr in &self.then.0 {
+            instr.encode(w)?;
+        }
         if !self.otherwise.is_empty() {
             IfElseInstructionRepr::Else.encode(w)?;
-            Instruction::encode_seq(&self.otherwise, w)?;
+            for instr in &self.otherwise.0 {
+                instr.encode(w)?;
+            }
         }
         SeqInstructionRepr::End.encode(w)
     }
