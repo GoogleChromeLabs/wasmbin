@@ -4,8 +4,9 @@ use wasmbin_derive::Wasmbin;
 mod builtins;
 
 mod indices;
-mod types;
 mod instructions;
+mod sections;
+mod types;
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -18,11 +19,11 @@ pub enum DecodeError {
     #[error("{0}")]
     Utf8(#[from] std::string::FromUtf8Error),
 
-    #[error("Unsupported discriminant {discriminant} for type {ty}")]
-    UnsupportedDiscriminant {
-        discriminant: i128,
-        ty: &'static str,
-    },
+    #[error("Could not recognise discriminant for type {ty}")]
+    UnsupportedDiscriminant { ty: &'static str },
+
+    #[error("Invalid module magic signature")]
+    InvalidMagic,
 }
 
 pub trait WasmbinEncode {
@@ -40,9 +41,9 @@ pub trait WasmbinEncode {
 }
 
 pub trait WasmbinDecode: Sized + WasmbinEncode {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
+    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError>;
 
-    fn decode_seq(count: usize, r: &mut impl std::io::Read) -> Result<Vec<Self>, DecodeError> {
+    fn decode_seq(count: u32, r: &mut impl std::io::BufRead) -> Result<Vec<Self>, DecodeError> {
         (0..count).map(|_| Self::decode(r)).collect()
     }
 }

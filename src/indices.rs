@@ -4,7 +4,7 @@ macro_rules! newtype_idx {
     ($name:ident) => {
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Wasmbin)]
         pub struct $name(u32);
-    }
+    };
 }
 
 newtype_idx!(TypeIdx);

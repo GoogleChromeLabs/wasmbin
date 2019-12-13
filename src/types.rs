@@ -1,4 +1,4 @@
-use crate::{Wasmbin, DecodeError, WasmbinEncode, WasmbinDecode};
+use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 
 #[derive(Wasmbin)]
 pub enum ValueType {
@@ -49,7 +49,7 @@ impl WasmbinEncode for Limits {
 }
 
 impl WasmbinDecode for Limits {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
         Ok(match LimitsRepr::decode(r)? {
             LimitsRepr::Min { min } => Limits { min, max: None },
             LimitsRepr::MinMax { min, max } => Limits {
@@ -61,7 +61,7 @@ impl WasmbinDecode for Limits {
 }
 
 #[derive(Wasmbin)]
-pub struct MemoryType {
+pub struct MemType {
     pub limits: Limits,
 }
 

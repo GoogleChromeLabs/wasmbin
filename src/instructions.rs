@@ -1,6 +1,6 @@
-use crate::{Wasmbin, DecodeError, WasmbinEncode, WasmbinDecode};
+use crate::indices::{FuncIdx, GlobalIdx, LabelIdx, LocalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::types::BlockType;
-use crate::indices::{FuncIdx, TableIdx, MemIdx, LabelIdx, LocalIdx, GlobalIdx, TypeIdx};
+use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 
 #[derive(Wasmbin)]
 enum SeqInstructionRepr {
@@ -10,9 +10,10 @@ enum SeqInstructionRepr {
     End,
 }
 
-pub struct Instructions(Vec<Instruction>);
+#[derive(Default)]
+pub struct Expression(Vec<Instruction>);
 
-impl std::ops::Deref for Instructions {
+impl std::ops::Deref for Expression {
     type Target = Vec<Instruction>;
 
     fn deref(&self) -> &Vec<Instruction> {
@@ -20,26 +21,26 @@ impl std::ops::Deref for Instructions {
     }
 }
 
-impl std::ops::DerefMut for Instructions {
+impl std::ops::DerefMut for Expression {
     fn deref_mut(&mut self) -> &mut Vec<Instruction> {
         &mut self.0
     }
 }
 
-impl WasmbinEncode for Instructions {
+impl WasmbinEncode for Expression {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         Instruction::encode_seq(&self.0, w)?;
         SeqInstructionRepr::End.encode(w)
     }
 }
 
-impl WasmbinDecode for Instructions {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+impl WasmbinDecode for Expression {
+    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
         let mut res = Vec::new();
         loop {
             match SeqInstructionRepr::decode(r)? {
                 SeqInstructionRepr::Instruction(instr) => res.push(instr),
-                SeqInstructionRepr::End => return Ok(Instructions(res)),
+                SeqInstructionRepr::End => return Ok(Expression(res)),
             }
         }
     }
@@ -48,13 +49,13 @@ impl WasmbinDecode for Instructions {
 #[derive(Wasmbin)]
 pub struct BlockBody {
     pub return_type: BlockType,
-    pub instructions: Instructions,
+    pub expr: Expression,
 }
 
 pub struct IfElse {
     pub return_type: BlockType,
-    pub then: Vec<Instruction>,
-    pub otherwise: Vec<Instruction>,
+    pub then: Expression,
+    pub otherwise: Expression,
 }
 
 #[derive(Wasmbin)]
@@ -78,11 +79,11 @@ impl WasmbinEncode for IfElse {
 }
 
 impl WasmbinDecode for IfElse {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
         let mut res = IfElse {
             return_type: BlockType::decode(r)?,
-            then: Vec::new(),
-            otherwise: Vec::new(),
+            then: Expression::default(),
+            otherwise: Expression::default(),
         };
         loop {
             match IfElseInstructionRepr::decode(r)? {
@@ -93,7 +94,7 @@ impl WasmbinDecode for IfElse {
                     break;
                 }
                 IfElseInstructionRepr::Else => {
-                    res.otherwise = Instructions::decode(r)?.0;
+                    res.otherwise = Expression::decode(r)?;
                     break;
                 }
             }
@@ -104,8 +105,8 @@ impl WasmbinDecode for IfElse {
 
 #[derive(Wasmbin)]
 pub struct MemArg {
-    align: u32,
-    offset: u32,
+    pub align: u32,
+    pub offset: u32,
 }
 
 #[derive(Wasmbin)]

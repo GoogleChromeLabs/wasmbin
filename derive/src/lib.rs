@@ -27,7 +27,6 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
     let name = s.ast().ident.to_string();
 
     let decode_other_err = quote!(discriminant => return Err(DecodeError::UnsupportedDiscriminant {
-        discriminant: discriminant.into(),
         ty: #name
     }));
 
@@ -112,7 +111,7 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
         }
 
         gen impl WasmbinDecode for @Self {
-            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+            fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
                 #decode
             }
         }
