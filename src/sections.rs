@@ -88,7 +88,7 @@ pub struct Func {
 pub struct Data {
     pub data: MemIdx,
     pub offset: Expression,
-    #[debug(with = custom_debug::hexbuf_str)]
+    #[debug(with = "custom_debug::hexbuf_str")]
     pub init: Blob<Vec<u8>>,
 }
 

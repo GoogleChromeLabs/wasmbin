@@ -25,6 +25,30 @@ impl<T> std::ops::DerefMut for Blob<T> {
     }
 }
 
+impl<R: ?Sized, T> AsRef<R> for Blob<T> where T: AsRef<R> {
+    fn as_ref(&self) -> &R {
+        self.0.as_ref()
+    }
+}
+
+impl<R: ?Sized, T> AsMut<R> for Blob<T> where T: AsMut<R> {
+    fn as_mut(&mut self) -> &mut R {
+        self.0.as_mut()
+    }
+}
+
+impl<T> std::borrow::Borrow<T> for Blob<T> {
+    fn borrow(&self) -> &T {
+        self
+    }
+}
+
+impl<T> std::borrow::BorrowMut<T> for Blob<T> {
+    fn borrow_mut(&mut self) -> &mut T {
+        self
+    }
+}
+
 impl<T: WasmbinEncode> WasmbinEncode for Blob<T> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         let mut dest = Vec::new();
