@@ -1,11 +1,22 @@
-use super::Wasmbin;
+use crate::{Wasmbin, WasmbinCountable};
 
 macro_rules! newtype_idx {
     ($name:ident) => {
-        #[derive(Debug, PartialEq, Eq, Clone, Copy, Wasmbin)]
+        #[derive(PartialEq, Eq, Clone, Copy, Wasmbin, WasmbinCountable)]
         #[repr(transparent)]
         pub struct $name {
             pub index: u32,
+        }
+
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(
+                    f,
+                    "{}#{}",
+                    &stringify!($name)[..stringify!($name).len() - "Idx".len()],
+                    self.index
+                )
+            }
         }
     };
 }

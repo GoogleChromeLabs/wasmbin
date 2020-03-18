@@ -1,6 +1,7 @@
-use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode, WasmbinCountable};
+use std::fmt::{self, Debug, Formatter};
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub enum ValueType {
     I32 = 0x7F,
     I64 = 0x7E,
@@ -8,7 +9,7 @@ pub enum ValueType {
     F64 = 0x7C,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub enum BlockType {
     #[wasmbin(discriminant = 0x40)]
     Empty,
@@ -16,16 +17,45 @@ pub enum BlockType {
     Value(ValueType),
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable)]
 #[wasmbin(discriminant = 0x60)]
 pub struct FuncType {
     pub params: Vec<ValueType>,
     pub results: Vec<ValueType>,
 }
 
+impl Debug for FuncType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        fn encode_types(types: &[ValueType], f: &mut Formatter) -> fmt::Result {
+            f.write_str("(")?;
+            for (i, ty) in types.iter().enumerate() {
+                if i != 0 {
+                    f.write_str(", ")?;
+                }
+                ty.fmt(f)?;
+            }
+            f.write_str(")")
+        }
+
+        encode_types(&self.params, f)?;
+        f.write_str(" -> ")?;
+        encode_types(&self.results, f)
+    }
+}
+
 pub struct Limits {
     pub min: u32,
     pub max: Option<u32>,
+}
+
+impl Debug for Limits {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}..", self.min)?;
+        if let Some(max) = self.max {
+            write!(f, "={}", max)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Wasmbin)]
@@ -60,23 +90,23 @@ impl WasmbinDecode for Limits {
     }
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub struct MemType {
     pub limits: Limits,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub enum ElemType {
     FuncRef = 0x70,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub struct TableType {
     pub elem_type: ElemType,
     pub limits: Limits,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub struct GlobalType {
     pub value_type: ValueType,
     pub mutable: bool,

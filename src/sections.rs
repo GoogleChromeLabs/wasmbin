@@ -1,16 +1,22 @@
+use crate::builtins::Blob;
 use crate::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instructions::Expression;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
-use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
-use crate::builtins::Blob;
+use crate::{
+    DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode,
+    WasmbinCountable,
+};
+use custom_debug::CustomDebug;
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, CustomDebug)]
 pub struct CustomSection {
     pub name: String,
+
+    #[debug(with = "custom_debug::hexbuf_str")]
     pub data: Vec<u8>,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub enum ImportDesc {
     #[wasmbin(discriminant = 0x00)]
     Func(TypeIdx),
@@ -25,20 +31,20 @@ pub enum ImportDesc {
     Global(GlobalType),
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub struct Import {
     pub module: String,
     pub name: String,
     pub desc: ImportDesc,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub struct Global {
     pub ty: GlobalType,
     pub init: Expression,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub enum ExportDesc {
     #[wasmbin(discriminant = 0x00)]
     Func(FuncIdx),
@@ -53,39 +59,40 @@ pub enum ExportDesc {
     Global(GlobalIdx),
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub struct Export {
     pub name: String,
     pub desc: ExportDesc,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub struct Element {
     pub table: TableIdx,
     pub offset: Expression,
     pub init: Vec<FuncIdx>,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub struct Locals {
     pub repeat: u32,
     pub ty: ValueType,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, Debug)]
 pub struct Func {
     pub locals: Vec<Locals>,
     pub body: Expression,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, WasmbinCountable, CustomDebug)]
 pub struct Data {
     pub data: MemIdx,
     pub offset: Expression,
+    #[debug(with = custom_debug::hexbuf_str)]
     pub init: Blob<Vec<u8>>,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub enum Section {
     #[wasmbin(discriminant = 0)]
     Custom(Blob<CustomSection>),
@@ -124,33 +131,21 @@ pub enum Section {
     Data(Blob<Vec<Data>>),
 }
 
-pub struct Module {
-    pub sections: Vec<Section>,
-}
-
-const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00];
-
-impl WasmbinEncode for Module {
+impl WasmbinEncode for [Section] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        w.write_all(&MAGIC_AND_VERSION)?;
-        for section in &self.sections {
+        for section in self {
             section.encode(w)?;
         }
         Ok(())
     }
 }
 
-impl WasmbinDecode for Module {
+impl WasmbinDecode for Vec<Section> {
     fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
-        let mut magic_and_version = [0; 8];
-        r.read_exact(&mut magic_and_version)?;
-        if magic_and_version != MAGIC_AND_VERSION {
-            return Err(DecodeError::InvalidMagic);
-        }
         let mut sections = Vec::new();
         while !r.fill_buf()?.is_empty() {
             sections.push(Section::decode(r)?);
         }
-        Ok(Module { sections })
+        Ok(sections)
     }
 }

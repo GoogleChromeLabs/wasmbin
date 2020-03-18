@@ -10,3 +10,4 @@ edition = "2018"
 leb128 = "0.2.4"
 thiserror = "1.0.9"
 wasmbin-derive = { path = "derive" }
+custom_debug = "0.4.0"

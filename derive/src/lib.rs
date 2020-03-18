@@ -27,7 +27,8 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
     let name = s.ast().ident.to_string();
 
     let decode_other_err = quote!(discriminant => return Err(DecodeError::UnsupportedDiscriminant {
-        ty: #name
+        ty: #name,
+        discriminant
     }));
 
     let (encode_discriminant, decode) = match s.ast().data {
@@ -118,4 +119,11 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
     })
 }
 
+fn wasmbin_countable_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
+    s.gen_impl(quote! {
+        gen impl crate::WasmbinCountable for @Self {}
+    })
+}
+
 decl_derive!([Wasmbin, attributes(wasmbin)] => wasmbin_derive);
+decl_derive!([WasmbinCountable] => wasmbin_countable_derive);

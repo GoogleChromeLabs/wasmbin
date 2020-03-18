@@ -1,12 +1,16 @@
 use thiserror::Error;
-use wasmbin_derive::Wasmbin;
+use wasmbin_derive::{Wasmbin, WasmbinCountable};
 
-mod builtins;
+pub mod builtins;
 
-mod indices;
-mod instructions;
-mod sections;
-mod types;
+pub mod indices;
+pub mod instructions;
+pub mod module;
+pub mod sections;
+pub mod types;
+
+use builtins::WasmbinCountable;
+pub use module::Module;
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -19,8 +23,8 @@ pub enum DecodeError {
     #[error("{0}")]
     Utf8(#[from] std::string::FromUtf8Error),
 
-    #[error("Could not recognise discriminant for type {ty}")]
-    UnsupportedDiscriminant { ty: &'static str },
+    #[error("Could not recognise discriminant 0x{discriminant:02X} for type {ty}")]
+    UnsupportedDiscriminant { ty: &'static str, discriminant: u8 },
 
     #[error("Invalid module magic signature")]
     InvalidMagic,
@@ -31,23 +35,8 @@ pub enum DecodeError {
 
 pub trait WasmbinEncode {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()>;
-
-    fn encode_seq(seq: &[Self], w: &mut impl std::io::Write) -> std::io::Result<()>
-    where
-        Self: Sized,
-    {
-        seq.len().encode(w)?;
-        for item in seq {
-            item.encode(w)?;
-        }
-        Ok(())
-    }
 }
 
 pub trait WasmbinDecode: Sized + WasmbinEncode {
     fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError>;
-
-    fn decode_seq(r: &mut impl std::io::BufRead) -> Result<Vec<Self>, DecodeError> {
-        (0..u32::decode(r)?).map(|_| Self::decode(r)).collect()
-    }
 }

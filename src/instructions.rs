@@ -1,16 +1,34 @@
 use crate::indices::{FuncIdx, GlobalIdx, LabelIdx, LocalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::types::BlockType;
-use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::{
+    DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode,
+};
 
-#[derive(Wasmbin)]
-enum SeqInstructionRepr {
-    Instruction(Instruction),
+const END: u8 = 0x0B;
 
-    #[wasmbin(discriminant = 0x0B)]
-    End,
+impl WasmbinEncode for [Instruction] {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        for instr in self {
+            instr.encode(w)?;
+        }
+        END.encode(w)
+    }
 }
 
-#[derive(Default)]
+impl WasmbinDecode for Vec<Instruction> {
+    fn decode(r: &mut impl ::std::io::BufRead) -> Result<Self, DecodeError> {
+        let mut res = Vec::new();
+        loop {
+            if let Some(&END) = r.fill_buf()?.get(0) {
+                r.consume(1);
+                return Ok(res);
+            }
+            res.push(Instruction::decode(r)?);
+        }
+    }
+}
+
+#[derive(Wasmbin, Default, Debug)]
 pub struct Expression(Vec<Instruction>);
 
 impl std::ops::Deref for Expression {
@@ -27,46 +45,20 @@ impl std::ops::DerefMut for Expression {
     }
 }
 
-impl WasmbinEncode for Expression {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        for instr in &self.0 {
-            instr.encode(w)?;
-        }
-        SeqInstructionRepr::End.encode(w)
-    }
-}
-
-impl WasmbinDecode for Expression {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
-        let mut res = Vec::new();
-        loop {
-            match SeqInstructionRepr::decode(r)? {
-                SeqInstructionRepr::Instruction(instr) => res.push(instr),
-                SeqInstructionRepr::End => return Ok(Expression(res)),
-            }
-        }
-    }
-}
-
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub struct BlockBody {
     pub return_type: BlockType,
     pub expr: Expression,
 }
 
+#[derive(Debug)]
 pub struct IfElse {
     pub return_type: BlockType,
     pub then: Expression,
     pub otherwise: Expression,
 }
 
-#[derive(Wasmbin)]
-enum IfElseInstructionRepr {
-    Instruction(SeqInstructionRepr),
-
-    #[wasmbin(discriminant = 0x05)]
-    Else,
-}
+const ELSE: u8 = 0x05;
 
 impl WasmbinEncode for IfElse {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -75,12 +67,12 @@ impl WasmbinEncode for IfElse {
             instr.encode(w)?;
         }
         if !self.otherwise.is_empty() {
-            IfElseInstructionRepr::Else.encode(w)?;
+            ELSE.encode(w)?;
             for instr in &self.otherwise.0 {
                 instr.encode(w)?;
             }
         }
-        SeqInstructionRepr::End.encode(w)
+        END.encode(w)
     }
 }
 
@@ -92,16 +84,16 @@ impl WasmbinDecode for IfElse {
             otherwise: Expression::default(),
         };
         loop {
-            match IfElseInstructionRepr::decode(r)? {
-                IfElseInstructionRepr::Instruction(SeqInstructionRepr::Instruction(instr)) => {
-                    res.then.push(instr);
-                }
-                IfElseInstructionRepr::Instruction(SeqInstructionRepr::End) => {
+            match r.fill_buf()?.get(0) {
+                Some(&END) => {
                     break;
                 }
-                IfElseInstructionRepr::Else => {
+                Some(&ELSE) => {
                     res.otherwise = Expression::decode(r)?;
                     break;
+                }
+                _ => {
+                    res.then.push(Instruction::decode(r)?);
                 }
             }
         }
@@ -109,13 +101,13 @@ impl WasmbinDecode for IfElse {
     }
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug)]
 pub enum Instruction {
     #[wasmbin(discriminant = 0x00)]
     Unreachable,
