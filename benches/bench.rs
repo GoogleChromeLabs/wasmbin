@@ -47,3 +47,18 @@ fn bench_write(b: &mut Bencher) {
         black_box(&m).encode(&mut f).unwrap();
     })
 }
+
+
+#[bench]
+fn bench_write_buf(b: &mut Bencher) {
+    let m = {
+        let f = File::open("temp.wasm").unwrap();
+        let mut f = &*unsafe { memmap::Mmap::map(&f) }.unwrap();
+        Module::decode(&mut f).unwrap()
+    };
+    b.iter(|| {
+        let f = File::create("temp.out.wasm").unwrap();
+        let mut f = std::io::BufWriter::new(f);
+        black_box(&m).encode(&mut f).unwrap();
+    })
+}
