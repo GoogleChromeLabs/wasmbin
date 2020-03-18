@@ -24,19 +24,10 @@ fn discriminant_attr(v: &synstructure::VariantInfo) -> Option<syn::Lit> {
 }
 
 fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
-    let name = s.ast().ident.to_string();
-
-    let decode_other_err = quote!(discriminant => return Err(DecodeError::UnsupportedDiscriminant {
-        ty: #name,
-        discriminant
-    }));
-
     let (encode_discriminant, decode) = match s.ast().data {
         syn::Data::Enum(_) => {
-            let mut seen_other = false;
-
             let mut decoders = quote!();
-            let mut decode_other = decode_other_err;
+            let mut decode_other = quote!({ return Ok(None) });
 
             let encode_discriminant = s.each_variant(|v| {
                 v.ast()
@@ -46,13 +37,19 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                     .or_else(|| discriminant_attr(v).map(|lit| quote!(#lit)))
                     .map_or_else(
                         || {
-                            if seen_other {
-                                panic!("Maximum one variant might be without a discriminant");
-                            }
-                            seen_other = true;
-                            let construct_other =
-                                v.construct(|_, _| quote!(WasmbinDecodeWithDiscriminant::decode_with_discriminant(discriminant, r)?));
-                            decode_other = quote!(discriminant => #construct_other);
+                            let fields = v.ast().fields;
+                            assert_eq!(fields.len(), 1, "Single field is required for catch-all discriminants.");
+                            let field = fields.iter().next().unwrap();
+                            let construct = match &field.ident {
+                                Some(ident) => quote!({ #ident: res }),
+                                None => quote!((res))
+                            };
+                            let variant_name = v.ast().ident;
+                            decode_other = quote! {
+                                if let Some(res) = WasmbinDecodeWithDiscriminant::maybe_decode_with_discriminant(discriminant, r)? {
+                                    Self::#variant_name #construct
+                                } else #decode_other
+                            };
                             quote!(Ok(()))
                         },
                         |discriminant| {
@@ -71,11 +68,11 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                 },
                 quote! {
                     gen impl WasmbinDecodeWithDiscriminant for @Self {
-                        fn decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                            Ok(match discriminant {
+                        fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
+                            Ok(Some(match discriminant {
                                 #decoders
-                                #decode_other
-                            })
+                                _ => #decode_other
+                            }))
                         }
                     }
                 }
@@ -91,10 +88,10 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                     <u8 as WasmbinEncode>::encode(&#discriminant, w)?;
                 }, quote! {
                     gen impl WasmbinDecodeWithDiscriminant for @Self {
-                        fn decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                        fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
                             Ok(match discriminant {
-                                #discriminant => #construct,
-                                #decode_other_err
+                                #discriminant => Some(#construct),
+                                _ => None
                             })
                         }
                     }
