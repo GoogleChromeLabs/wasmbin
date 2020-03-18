@@ -1,4 +1,4 @@
-use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode, WasmbinCountable};
+use crate::{DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode, WasmbinEncode};
 use std::fmt::{self, Debug, Formatter};
 
 #[derive(Wasmbin, WasmbinCountable, Debug)]
@@ -79,7 +79,7 @@ impl WasmbinEncode for Limits {
 }
 
 impl WasmbinDecode for Limits {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Ok(match LimitsRepr::decode(r)? {
             LimitsRepr::Min { min } => Limits { min, max: None },
             LimitsRepr::MinMax { min, max } => Limits {

@@ -12,15 +12,20 @@ impl<T: WasmbinCountable + WasmbinEncode> WasmbinEncode for [T] {
     }
 }
 
-impl<T> WasmbinEncode for Vec<T> where [T]: WasmbinEncode {
+impl<T> WasmbinEncode for Vec<T>
+where
+    [T]: WasmbinEncode,
+{
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         self.as_slice().encode(w)
     }
 }
 
 impl<T: WasmbinCountable + WasmbinDecode> WasmbinDecode for Vec<T> {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let count = usize::decode(r)?;
-        std::iter::repeat_with(|| T::decode(r)).take(count).collect()
+        std::iter::repeat_with(|| T::decode(r))
+            .take(count)
+            .collect()
     }
 }

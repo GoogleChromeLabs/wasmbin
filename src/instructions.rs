@@ -1,29 +1,32 @@
 use crate::indices::{FuncIdx, GlobalIdx, LabelIdx, LocalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::types::BlockType;
-use crate::{
-    DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode,
-};
+use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 
-const END: u8 = 0x0B;
+#[derive(Wasmbin)]
+enum SeqInstructionRepr {
+    Instruction(Instruction),
+
+    #[wasmbin(discriminant = 0x0B)]
+    End,
+}
 
 impl WasmbinEncode for [Instruction] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         for instr in self {
             instr.encode(w)?;
         }
-        END.encode(w)
+        SeqInstructionRepr::End.encode(w)
     }
 }
 
 impl WasmbinDecode for Vec<Instruction> {
-    fn decode(r: &mut impl ::std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut res = Vec::new();
         loop {
-            if let Some(&END) = r.fill_buf()?.get(0) {
-                r.consume(1);
-                return Ok(res);
+            match SeqInstructionRepr::decode(r)? {
+                SeqInstructionRepr::Instruction(instr) => res.push(instr),
+                SeqInstructionRepr::End => return Ok(res),
             }
-            res.push(Instruction::decode(r)?);
         }
     }
 }
@@ -58,7 +61,13 @@ pub struct IfElse {
     pub otherwise: Expression,
 }
 
-const ELSE: u8 = 0x05;
+#[derive(Wasmbin)]
+enum IfElseInstructionRepr {
+    Instruction(SeqInstructionRepr),
+
+    #[wasmbin(discriminant = 0x05)]
+    Else,
+}
 
 impl WasmbinEncode for IfElse {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -67,33 +76,33 @@ impl WasmbinEncode for IfElse {
             instr.encode(w)?;
         }
         if !self.otherwise.is_empty() {
-            ELSE.encode(w)?;
+            IfElseInstructionRepr::Else.encode(w)?;
             for instr in &self.otherwise.0 {
                 instr.encode(w)?;
             }
         }
-        END.encode(w)
+        SeqInstructionRepr::End.encode(w)
     }
 }
 
 impl WasmbinDecode for IfElse {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut res = IfElse {
             return_type: BlockType::decode(r)?,
             then: Expression::default(),
             otherwise: Expression::default(),
         };
         loop {
-            match r.fill_buf()?.get(0) {
-                Some(&END) => {
+            match IfElseInstructionRepr::decode(r)? {
+                IfElseInstructionRepr::Instruction(SeqInstructionRepr::Instruction(instr)) => {
+                    res.then.push(instr);
+                }
+                IfElseInstructionRepr::Instruction(SeqInstructionRepr::End) => {
                     break;
                 }
-                Some(&ELSE) => {
+                IfElseInstructionRepr::Else => {
                     res.otherwise = Expression::decode(r)?;
                     break;
-                }
-                _ => {
-                    res.then.push(Instruction::decode(r)?);
                 }
             }
         }

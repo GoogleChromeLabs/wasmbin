@@ -14,7 +14,7 @@ impl WasmbinEncode for String {
 }
 
 impl WasmbinDecode for String {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Ok(String::from_utf8(Blob::decode(r)?.0)?)
     }
 }

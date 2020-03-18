@@ -38,5 +38,18 @@ pub trait WasmbinEncode {
 }
 
 pub trait WasmbinDecode: Sized + WasmbinEncode {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError>;
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
+}
+
+pub trait WasmbinDecodeWithDiscriminant: WasmbinDecode {
+    fn decode_with_discriminant(
+        discriminant: u8,
+        r: &mut impl std::io::Read,
+    ) -> Result<Self, DecodeError>;
+}
+
+impl<T: WasmbinDecodeWithDiscriminant> WasmbinDecode for T {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        Self::decode_with_discriminant(u8::decode(r)?, r)
+    }
 }

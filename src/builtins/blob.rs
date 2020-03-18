@@ -1,4 +1,4 @@
-use crate::{DecodeError, WasmbinDecode, WasmbinEncode, WasmbinCountable};
+use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
 
 #[repr(transparent)]
 pub struct Blob<T>(pub T);
@@ -35,7 +35,7 @@ impl<T: WasmbinEncode> WasmbinEncode for Blob<T> {
 }
 
 impl<T: WasmbinDecode> WasmbinDecode for Blob<T> {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let size = u32::decode(r)?;
         let mut taken = std::io::Read::take(r, size.into());
         let value = T::decode(&mut taken)?;

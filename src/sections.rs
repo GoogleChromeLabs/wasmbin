@@ -3,8 +3,8 @@ use crate::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instructions::Expression;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
 use crate::{
-    DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode,
-    WasmbinCountable,
+    DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode, WasmbinDecodeWithDiscriminant,
+    WasmbinEncode,
 };
 use custom_debug::CustomDebug;
 
@@ -141,11 +141,20 @@ impl WasmbinEncode for [Section] {
 }
 
 impl WasmbinDecode for Vec<Section> {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut sections = Vec::new();
-        while !r.fill_buf()?.is_empty() {
-            sections.push(Section::decode(r)?);
+        loop {
+            match u8::decode(r) {
+                Err(DecodeError::Io(err)) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    return Ok(sections);
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+                Ok(discriminant) => {
+                    sections.push(Section::decode_with_discriminant(discriminant, r)?);
+                }
+            }
         }
-        Ok(sections)
     }
 }

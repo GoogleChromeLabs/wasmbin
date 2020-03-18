@@ -14,7 +14,7 @@ impl WasmbinEncode for [u8] {
 }
 
 impl WasmbinDecode for u8 {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut dest = 0;
         r.read_exact(std::slice::from_mut(&mut dest))?;
         Ok(dest)
@@ -22,7 +22,7 @@ impl WasmbinDecode for u8 {
 }
 
 impl WasmbinDecode for Vec<u8> {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut dest = Vec::new();
         r.read_to_end(&mut dest)?;
         Ok(dest)
@@ -36,7 +36,7 @@ impl WasmbinEncode for u32 {
 }
 
 impl WasmbinDecode for u32 {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         u32::try_from(u64::decode(r)?)
             .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))
     }
@@ -49,7 +49,7 @@ impl WasmbinEncode for i32 {
 }
 
 impl WasmbinDecode for i32 {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         i32::try_from(i64::decode(r)?)
             .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))
     }
@@ -65,7 +65,7 @@ impl WasmbinEncode for usize {
 }
 
 impl WasmbinDecode for usize {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         usize::try_from(u32::decode(r)?)
             .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))
     }
@@ -78,7 +78,7 @@ impl WasmbinEncode for u64 {
 }
 
 impl WasmbinDecode for u64 {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Ok(leb128::read::unsigned(r)?)
     }
 }
@@ -90,7 +90,7 @@ impl WasmbinEncode for i64 {
 }
 
 impl WasmbinDecode for i64 {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Ok(leb128::read::signed(r)?)
     }
 }

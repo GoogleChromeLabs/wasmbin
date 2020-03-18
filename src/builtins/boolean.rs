@@ -17,7 +17,7 @@ impl WasmbinEncode for bool {
 }
 
 impl WasmbinDecode for bool {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Ok(match BoolRepr::decode(r)? {
             BoolRepr::False => false,
             BoolRepr::True => true,

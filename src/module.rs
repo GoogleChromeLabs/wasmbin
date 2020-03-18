@@ -13,7 +13,7 @@ impl WasmbinEncode for MagicAndVersion {
 }
 
 impl WasmbinDecode for MagicAndVersion {
-    fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut magic_and_version = [0; 8];
         r.read_exact(&mut magic_and_version)?;
         if magic_and_version != MAGIC_AND_VERSION {

@@ -51,8 +51,8 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                             }
                             seen_other = true;
                             let construct_other =
-                                v.construct(|_, _| quote!(WasmbinDecode::decode(r)?));
-                            decode_other = quote!(_ => #construct_other);
+                                v.construct(|_, _| quote!(WasmbinDecodeWithDiscriminant::decode_with_discriminant(discriminant, r)?));
+                            decode_other = quote!(discriminant => #construct_other);
                             quote!(Ok(()))
                         },
                         |discriminant| {
@@ -70,52 +70,64 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                     }?;
                 },
                 quote! {
-                    Ok(match <u8 as WasmbinDecode>::decode(r)? {
-                        #decoders
-                        #decode_other
-                    })
-                },
+                    gen impl WasmbinDecodeWithDiscriminant for @Self {
+                        fn decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                            Ok(match discriminant {
+                                #decoders
+                                #decode_other
+                            })
+                        }
+                    }
+                }
             )
         }
-        _ => (quote! {}, {
+        _ => {
             let variants = s.variants();
             assert_eq!(variants.len(), 1);
             let v = &variants[0];
             let construct = v.construct(|_, _| quote!(WasmbinDecode::decode(r)?));
-            let construct = quote!(Ok(#construct));
             match discriminant_attr(v) {
-                Some(lit) => quote! {
-                    match <u8 as WasmbinDecode>::decode(r)? {
-                        #lit => #construct,
-                        #decode_other_err
+                Some(discriminant) => (quote! {
+                    <u8 as WasmbinEncode>::encode(&#discriminant, w)?;
+                }, quote! {
+                    gen impl WasmbinDecodeWithDiscriminant for @Self {
+                        fn decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                            Ok(match discriminant {
+                                #discriminant => #construct,
+                                #decode_other_err
+                            })
+                        }
                     }
-                },
-                None => construct,
+                }),
+                None => (quote!{}, quote! {
+                    gen impl WasmbinDecode for @Self {
+                        fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                            Ok(#construct)
+                        }
+                    }
+                })
             }
-        }),
+        },
     };
 
     let encode_body = s.each(|bi| {
         quote! {
-            WasmbinEncode::encode(#bi, w)?;
+            WasmbinEncode::encode(#bi, w)?
         }
     });
 
     s.gen_impl(quote! {
-        use crate::{WasmbinEncode, WasmbinDecode, DecodeError};
+        use crate::{WasmbinEncode, WasmbinDecode, WasmbinDecodeWithDiscriminant, DecodeError};
 
         gen impl WasmbinEncode for @Self {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
                 #encode_discriminant
-                Ok(match *self { #encode_body })
+                match *self { #encode_body }
+                Ok(())
             }
         }
 
-        gen impl WasmbinDecode for @Self {
-            fn decode(r: &mut impl std::io::BufRead) -> Result<Self, DecodeError> {
-                #decode
-            }
-        }
+        #decode
     })
 }
 
