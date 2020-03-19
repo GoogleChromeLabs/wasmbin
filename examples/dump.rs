@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom};
 use wasmbin::{module::Module, WasmbinDecode};
@@ -14,6 +15,6 @@ fn main() {
     });
     println!("{:#?}", m);
     println!("---");
-    let m = wasmbin::typed_module::Module::from(m);
+    let m = wasmbin::typed_module::Module::try_from(m).unwrap();
     println!("{:#?}", m);
 }

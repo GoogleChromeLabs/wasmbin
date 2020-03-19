@@ -5,6 +5,7 @@ pub mod builtins;
 
 pub mod indices;
 pub mod instructions;
+pub mod lazy_mut;
 pub mod module;
 pub mod sections;
 pub mod typed_module;
@@ -37,7 +38,7 @@ pub trait WasmbinEncode {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()>;
 }
 
-pub trait WasmbinDecode: Sized + WasmbinEncode {
+pub trait WasmbinDecode: Sized {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
 }
 

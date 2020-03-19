@@ -1,4 +1,4 @@
-use crate::builtins::Blob;
+use crate::builtins::blob::{Blob, RawBlob};
 use crate::instructions::Expression;
 use crate::sections::CustomSection;
 use crate::sections::Func;
@@ -7,6 +7,7 @@ use crate::types::FuncType;
 use crate::types::GlobalType;
 use crate::types::MemType;
 use crate::types::TableType;
+use crate::DecodeError;
 use custom_debug::CustomDebug;
 use std::cell::{Ref, RefCell, RefMut};
 use std::convert::TryFrom;
@@ -167,7 +168,7 @@ pub struct Element {
 pub struct Data {
     pub offset: Expression,
     #[debug(with = "custom_debug::hexbuf_str")]
-    pub init: Blob<Vec<u8>>,
+    pub init: RawBlob,
 }
 
 #[derive(Debug)]
@@ -211,19 +212,21 @@ pub struct Module {
     pub custom: Vec<Blob<CustomSection>>,
 }
 
-impl From<super::module::Module> for Module {
-    fn from(src: super::module::Module) -> Self {
+impl TryFrom<super::module::Module> for Module {
+    type Error = DecodeError;
+
+    fn try_from(src: super::module::Module) -> Result<Self, DecodeError> {
         let mut dest = Self::default();
         for section in src.sections {
             match section {
                 Section::Custom(custom) => {
                     dest.custom.push(custom);
                 }
-                Section::Type(Blob(types)) => {
-                    dest.types = IndexedCollection::from_iter(types);
+                Section::Type(types) => {
+                    dest.types = IndexedCollection::from_iter(types.try_into_contents()?);
                 }
-                Section::Import(Blob(imports)) => {
-                    for import in imports {
+                Section::Import(imports) => {
+                    for import in imports.try_into_contents()? {
                         macro_rules! import {
                             ($dest:ident, $expr:expr) => {
                                 dest.$dest.items.push(to_item($expr))
@@ -269,49 +272,62 @@ impl From<super::module::Module> for Module {
                         }
                     }
                 }
-                Section::Function(Blob(type_indices)) => {
+                Section::Function(type_indices) => {
                     let types = &dest.types;
                     dest.functions
                         .items
-                        .extend(type_indices.into_iter().map(|type_idx| {
-                            to_item(Function {
-                                ty: Rc::clone(types.get_rc_refcell(type_idx.index).unwrap()),
-                                body: MaybeImported::Local(Default::default()),
+                        .extend(
+                            type_indices
+                                .try_into_contents()?
+                                .into_iter()
+                                .map(|type_idx| {
+                                    to_item(Function {
+                                        ty: Rc::clone(
+                                            types.get_rc_refcell(type_idx.index).unwrap(),
+                                        ),
+                                        body: MaybeImported::Local(Default::default()),
+                                        export_name: None,
+                                    })
+                                }),
+                        );
+                }
+                Section::Table(table_types) => {
+                    dest.tables
+                        .items
+                        .extend(table_types.try_into_contents()?.into_iter().map(|ty| {
+                            to_item(Table {
+                                ty,
+                                import_path: None,
+                                export_name: None,
+                                init: Vec::new(),
+                            })
+                        }));
+                }
+                Section::Memory(mem_types) => {
+                    dest.memories
+                        .items
+                        .extend(mem_types.try_into_contents()?.into_iter().map(|ty| {
+                            to_item(Memory {
+                                ty,
+                                import_path: None,
+                                export_name: None,
+                                init: Vec::new(),
+                            })
+                        }));
+                }
+                Section::Global(globals) => {
+                    dest.globals
+                        .items
+                        .extend(globals.try_into_contents()?.into_iter().map(|global| {
+                            to_item(Global {
+                                ty: global.ty,
+                                init: MaybeImported::Local(global.init),
                                 export_name: None,
                             })
                         }));
                 }
-                Section::Table(Blob(table_types)) => {
-                    dest.tables.items.extend(table_types.into_iter().map(|ty| {
-                        to_item(Table {
-                            ty,
-                            import_path: None,
-                            export_name: None,
-                            init: Vec::new(),
-                        })
-                    }));
-                }
-                Section::Memory(Blob(mem_types)) => {
-                    dest.memories.items.extend(mem_types.into_iter().map(|ty| {
-                        to_item(Memory {
-                            ty,
-                            import_path: None,
-                            export_name: None,
-                            init: Vec::new(),
-                        })
-                    }));
-                }
-                Section::Global(Blob(globals)) => {
-                    dest.globals.items.extend(globals.into_iter().map(|global| {
-                        to_item(Global {
-                            ty: global.ty,
-                            init: MaybeImported::Local(global.init),
-                            export_name: None,
-                        })
-                    }));
-                }
-                Section::Export(Blob(exports)) => {
-                    for export in exports {
+                Section::Export(exports) => {
+                    for export in exports.try_into_contents()? {
                         macro_rules! export {
                             ($dest:ident, $idx:expr) => {
                                 dest.$dest.get_mut($idx.index).unwrap().export_name =
@@ -326,14 +342,16 @@ impl From<super::module::Module> for Module {
                         }
                     }
                 }
-                Section::Start(Blob(func_idx)) => {
+                Section::Start(func_idx) => {
                     dest.start = Some(Rc::clone(
-                        dest.functions.get_rc_refcell(func_idx.index).unwrap(),
+                        dest.functions
+                            .get_rc_refcell(func_idx.try_into_contents()?.index)
+                            .unwrap(),
                     ));
                 }
-                Section::Element(Blob(elements)) => {
+                Section::Element(elements) => {
                     let functions = &dest.functions;
-                    for elem in elements {
+                    for elem in elements.try_into_contents()? {
                         dest.tables
                             .get_mut(elem.table.index)
                             .unwrap()
@@ -350,13 +368,17 @@ impl From<super::module::Module> for Module {
                             })
                     }
                 }
-                Section::Code(Blob(code)) => {
-                    for (code, mut func) in code.into_iter().zip(&mut dest.functions) {
+                Section::Code(code) => {
+                    for (code, mut func) in code
+                        .try_into_contents()?
+                        .into_iter()
+                        .zip(&mut dest.functions)
+                    {
                         func.body = MaybeImported::Local(code);
                     }
                 }
-                Section::Data(Blob(data)) => {
-                    for data in data {
+                Section::Data(data) => {
+                    for data in data.try_into_contents()? {
                         dest.memories
                             .get_mut(data.memory.index)
                             .unwrap()
@@ -369,6 +391,6 @@ impl From<super::module::Module> for Module {
                 }
             }
         }
-        dest
+        Ok(dest)
     }
 }

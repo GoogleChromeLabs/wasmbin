@@ -1,9 +1,9 @@
-use super::Blob;
+use super::blob::RawBlob;
 use crate::{DecodeError, WasmbinDecode, WasmbinEncode};
 
 impl WasmbinEncode for str {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        Blob(self.as_bytes()).encode(w)
+        RawBlob { contents: self }.encode(w)
     }
 }
 
@@ -15,6 +15,6 @@ impl WasmbinEncode for String {
 
 impl WasmbinDecode for String {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Ok(String::from_utf8(Blob::decode(r)?.0)?)
+        Ok(String::from_utf8(RawBlob::decode(r)?.contents)?)
     }
 }

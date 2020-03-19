@@ -1,4 +1,4 @@
-use crate::builtins::Blob;
+use crate::builtins::blob::{Blob, RawBlob};
 use crate::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instructions::Expression;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
@@ -94,7 +94,7 @@ pub struct Data {
     pub memory: MemIdx,
     pub offset: Expression,
     #[debug(with = "custom_debug::hexbuf_str")]
-    pub init: Blob<Vec<u8>>,
+    pub init: RawBlob,
 }
 
 #[derive(Wasmbin, Debug)]
