@@ -4,7 +4,7 @@ extern crate test;
 
 use std::fs::File;
 use test::{black_box, Bencher};
-use wasmbin::{Module, WasmbinDecode, WasmbinEncode};
+use wasmbin::{module::Module, WasmbinDecode, WasmbinEncode};
 
 #[bench]
 fn bench_parse(b: &mut Bencher) {

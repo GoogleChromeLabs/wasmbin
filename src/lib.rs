@@ -7,10 +7,10 @@ pub mod indices;
 pub mod instructions;
 pub mod module;
 pub mod sections;
+pub mod typed_module;
 pub mod types;
 
 use builtins::WasmbinCountable;
-pub use module::Module;
 
 #[derive(Error, Debug)]
 pub enum DecodeError {

@@ -1,6 +1,7 @@
 use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
 
 #[repr(transparent)]
+#[derive(Default)]
 pub struct Blob<T>(pub T);
 
 impl<T: std::fmt::Debug> std::fmt::Debug for Blob<T> {

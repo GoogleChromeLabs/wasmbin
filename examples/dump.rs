@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom};
-use wasmbin::{Module, WasmbinDecode};
+use wasmbin::{module::Module, WasmbinDecode};
 
 fn main() {
     let f = File::open(std::env::args().nth(1).expect("expected filename")).unwrap();
@@ -12,5 +12,8 @@ fn main() {
             err
         )
     });
+    println!("{:#?}", m);
+    println!("---");
+    let m = wasmbin::typed_module::Module::from(m);
     println!("{:#?}", m);
 }

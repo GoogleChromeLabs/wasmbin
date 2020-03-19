@@ -31,10 +31,15 @@ pub enum ImportDesc {
     Global(GlobalType),
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
-pub struct Import {
+#[derive(Wasmbin, Debug)]
+pub struct ImportPath {
     pub module: String,
     pub name: String,
+}
+
+#[derive(Wasmbin, WasmbinCountable, Debug)]
+pub struct Import {
+    pub path: ImportPath,
     pub desc: ImportDesc,
 }
 
@@ -78,7 +83,7 @@ pub struct Locals {
     pub ty: ValueType,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Default)]
 pub struct Func {
     pub locals: Vec<Locals>,
     pub body: Expression,
