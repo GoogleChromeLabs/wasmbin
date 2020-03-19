@@ -26,13 +26,19 @@ impl<T> std::ops::DerefMut for Blob<T> {
     }
 }
 
-impl<R: ?Sized, T> AsRef<R> for Blob<T> where T: AsRef<R> {
+impl<R: ?Sized, T> AsRef<R> for Blob<T>
+where
+    T: AsRef<R>,
+{
     fn as_ref(&self) -> &R {
         self.0.as_ref()
     }
 }
 
-impl<R: ?Sized, T> AsMut<R> for Blob<T> where T: AsMut<R> {
+impl<R: ?Sized, T> AsMut<R> for Blob<T>
+where
+    T: AsMut<R>,
+{
     fn as_mut(&mut self) -> &mut R {
         self.0.as_mut()
     }

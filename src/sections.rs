@@ -91,7 +91,7 @@ pub struct Func {
 
 #[derive(Wasmbin, WasmbinCountable, CustomDebug)]
 pub struct Data {
-    pub data: MemIdx,
+    pub memory: MemIdx,
     pub offset: Expression,
     #[debug(with = "custom_debug::hexbuf_str")]
     pub init: Blob<Vec<u8>>,
