@@ -48,7 +48,6 @@ fn bench_write(b: &mut Bencher) {
     })
 }
 
-
 #[bench]
 fn bench_write_buf(b: &mut Bencher) {
     let m = {
