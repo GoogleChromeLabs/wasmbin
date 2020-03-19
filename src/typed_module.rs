@@ -7,7 +7,7 @@ use crate::types::FuncType;
 use crate::types::GlobalType;
 use crate::types::MemType;
 use crate::types::TableType;
-use crate::DecodeError;
+use crate::{DecodeError, WasmbinDecode, WasmbinEncode};
 use custom_debug::CustomDebug;
 use std::cell::{Ref, RefCell, RefMut};
 use std::convert::TryFrom;
@@ -392,5 +392,17 @@ impl TryFrom<super::module::Module> for Module {
             }
         }
         Ok(dest)
+    }
+}
+
+impl WasmbinDecode for Module {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        Self::try_from(crate::module::Module::decode(r)?)
+    }
+}
+
+impl WasmbinEncode for Module {
+    fn encode(&self, _w: &mut impl std::io::Write) -> std::io::Result<()> {
+        unimplemented!()
     }
 }
