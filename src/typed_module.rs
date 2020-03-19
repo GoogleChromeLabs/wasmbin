@@ -53,7 +53,7 @@ impl<T> IndexedCollection<T> {
         self.get_refcell(index).map(RefCell::borrow)
     }
 
-    pub fn get_mut(&self, index: u32) -> Option<RefMut<T>> {
+    pub fn get_mut(&mut self, index: u32) -> Option<RefMut<T>> {
         self.get_refcell(index).map(RefCell::borrow_mut)
     }
 
