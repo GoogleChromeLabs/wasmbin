@@ -13,12 +13,14 @@ use std::convert::TryFrom;
 use std::iter::{Extend, FromIterator};
 use std::rc::Rc;
 
-fn to_item<T>(value: T) -> Option<Rc<RefCell<T>>> {
+type Item<T> = Rc<RefCell<T>>;
+
+fn to_item<T>(value: T) -> Option<Item<T>> {
     Some(Rc::new(RefCell::new(value)))
 }
 
 pub struct IndexedCollection<T> {
-    items: Vec<Option<Rc<RefCell<T>>>>,
+    items: Vec<Option<Item<T>>>,
     deleted: Vec<u32>,
 }
 
@@ -41,7 +43,7 @@ impl<T> FromIterator<T> for IndexedCollection<T> {
 }
 
 impl<T> IndexedCollection<T> {
-    fn get_rc_refcell(&self, index: u32) -> Option<&Rc<RefCell<T>>> {
+    fn get_rc_refcell(&self, index: u32) -> Option<&Item<T>> {
         self.items.get(usize::try_from(index).unwrap())?.as_ref()
     }
 
@@ -104,7 +106,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for IndexedCollection<T> {
 }
 
 pub struct IndexedCollectionIter<'a, T> {
-    inner: std::slice::Iter<'a, Option<Rc<RefCell<T>>>>,
+    inner: std::slice::Iter<'a, Option<Item<T>>>,
 }
 
 impl<'a, T> Iterator for IndexedCollectionIter<'a, T> {
@@ -127,7 +129,7 @@ impl<'a, T> IntoIterator for &'a IndexedCollection<T> {
 }
 
 pub struct IndexedCollectionIterMut<'a, T> {
-    inner: std::slice::IterMut<'a, Option<Rc<RefCell<T>>>>,
+    inner: std::slice::IterMut<'a, Option<Item<T>>>,
 }
 
 impl<'a, T> Iterator for IndexedCollectionIterMut<'a, T> {
@@ -158,7 +160,7 @@ pub enum MaybeImported<T> {
 #[derive(Debug)]
 pub struct Element {
     pub offset: Expression,
-    pub init: Vec<Rc<RefCell<Function>>>,
+    pub init: Vec<Item<Function>>,
 }
 
 #[derive(CustomDebug)]
@@ -170,7 +172,7 @@ pub struct Data {
 
 #[derive(Debug)]
 pub struct Function {
-    pub ty: Rc<RefCell<FuncType>>,
+    pub ty: Item<FuncType>,
     pub body: MaybeImported<Blob<Func>>,
     pub export_name: Option<String>,
 }
@@ -205,7 +207,7 @@ pub struct Module {
     pub tables: IndexedCollection<Table>,
     pub memories: IndexedCollection<Memory>,
     pub globals: IndexedCollection<Global>,
-    pub start: Option<Rc<RefCell<Function>>>,
+    pub start: Option<Item<Function>>,
     pub custom: Vec<Blob<CustomSection>>,
 }
 
