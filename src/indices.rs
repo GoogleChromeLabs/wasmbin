@@ -1,8 +1,9 @@
 use crate::{Wasmbin, WasmbinCountable};
+use arbitrary::Arbitrary;
 
 macro_rules! newtype_idx {
     ($name:ident) => {
-        #[derive(PartialEq, Eq, Clone, Copy, Wasmbin, WasmbinCountable)]
+        #[derive(PartialEq, Eq, Clone, Copy, Wasmbin, WasmbinCountable, Arbitrary)]
         #[repr(transparent)]
         pub struct $name {
             pub index: u32,

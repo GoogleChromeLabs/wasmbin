@@ -7,8 +7,9 @@ use crate::{
     WasmbinEncode,
 };
 use custom_debug::CustomDebug;
+use arbitrary::Arbitrary;
 
-#[derive(Wasmbin, CustomDebug)]
+#[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq)]
 pub struct CustomSection {
     pub name: String,
 
@@ -16,7 +17,7 @@ pub struct CustomSection {
     pub data: Vec<u8>,
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum ImportDesc {
     #[wasmbin(discriminant = 0x00)]
     Func(TypeIdx),
@@ -31,25 +32,25 @@ pub enum ImportDesc {
     Global(GlobalType),
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub struct ImportPath {
     pub module: String,
     pub name: String,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq)]
 pub struct Import {
     pub path: ImportPath,
     pub desc: ImportDesc,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq)]
 pub struct Global {
     pub ty: GlobalType,
     pub init: Expression,
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum ExportDesc {
     #[wasmbin(discriminant = 0x00)]
     Func(FuncIdx),
@@ -64,32 +65,32 @@ pub enum ExportDesc {
     Global(GlobalIdx),
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq)]
 pub struct Export {
     pub name: String,
     pub desc: ExportDesc,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq)]
 pub struct Element {
     pub table: TableIdx,
     pub offset: Expression,
     pub init: Vec<FuncIdx>,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq)]
 pub struct Locals {
     pub repeat: u32,
     pub ty: ValueType,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Default)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Default, Arbitrary, PartialEq)]
 pub struct Func {
     pub locals: Vec<Locals>,
     pub body: Expression,
 }
 
-#[derive(Wasmbin, WasmbinCountable, CustomDebug)]
+#[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq)]
 pub struct Data {
     pub memory: MemIdx,
     pub offset: Expression,
@@ -97,7 +98,7 @@ pub struct Data {
     pub init: RawBlob,
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq)]
 pub enum Section {
     #[wasmbin(discriminant = 0)]
     Custom(Blob<CustomSection>),

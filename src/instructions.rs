@@ -1,6 +1,7 @@
 use crate::indices::{FuncIdx, GlobalIdx, LabelIdx, LocalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::types::BlockType;
 use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use arbitrary::Arbitrary;
 
 #[derive(Wasmbin)]
 enum SeqInstructionRepr {
@@ -31,7 +32,7 @@ impl WasmbinDecode for Vec<Instruction> {
     }
 }
 
-#[derive(Wasmbin, Default, Debug)]
+#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq)]
 pub struct Expression(Vec<Instruction>);
 
 impl std::ops::Deref for Expression {
@@ -48,13 +49,13 @@ impl std::ops::DerefMut for Expression {
     }
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq)]
 pub struct BlockBody {
     pub return_type: BlockType,
     pub expr: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Arbitrary, PartialEq)]
 pub struct IfElse {
     pub return_type: BlockType,
     pub then: Expression,
@@ -110,13 +111,13 @@ impl WasmbinDecode for IfElse {
     }
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq)]
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq)]
 pub enum Instruction {
     #[wasmbin(discriminant = 0x00)]
     Unreachable,

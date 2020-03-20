@@ -1,4 +1,5 @@
 use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
+use arbitrary::Arbitrary;
 
 #[cfg(feature = "lazy-blob")]
 macro_rules! if_lazy {
@@ -18,6 +19,7 @@ if_lazy!(if lazy {
     use crate::lazy_mut::{LazyMut, LazyTransform};
 });
 
+#[derive(Debug, Arbitrary, PartialEq, Eq)]
 pub struct RawBlob<T = Vec<u8>> {
     pub contents: T,
 }
@@ -49,7 +51,7 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for RawBlob<T> {
 }
 
 if_lazy!(if lazy {
-    struct BlobTransform;
+    pub struct BlobTransform;
 
     impl<T: WasmbinDecode> LazyTransform<Box<[u8]>, Result<T, DecodeError>> for BlobTransform {
         fn lazy_transform(input: &Box<[u8]>) -> Result<T, DecodeError> {
@@ -95,7 +97,7 @@ if_lazy!(if lazy {
     }
 });
 
-#[derive(Default)]
+#[derive(Default, Arbitrary, PartialEq, Eq)]
 pub struct Blob<T> {
     contents: BlobContents<T>,
 }

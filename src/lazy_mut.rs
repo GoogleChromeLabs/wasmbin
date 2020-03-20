@@ -1,5 +1,6 @@
 use once_cell::unsync::OnceCell;
 use std::marker::PhantomData;
+use arbitrary::Arbitrary;
 
 #[cfg(debug_assertions)]
 fn unreachable<T>() -> T {
@@ -36,11 +37,40 @@ impl<I: Default, O, L> Default for LazyMut<I, O, L> {
     }
 }
 
+impl<I: 'static, O: Arbitrary, L: 'static> Arbitrary for LazyMut<I, O, L> {
+    fn arbitrary(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Self> {
+        O::arbitrary(u).map(LazyMut::new_from_output)
+    }
+
+    fn arbitrary_take_rest(u: arbitrary::Unstructured) -> arbitrary::Result<Self> {
+        O::arbitrary_take_rest(u).map(LazyMut::new_from_output)
+    }
+
+    fn size_hint(depth: usize) -> (usize, Option<usize>) {
+        O::size_hint(depth)
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match self.output.get() {
+            Some(output) => Box::new(output.shrink().map(LazyMut::new_from_output)),
+            None => Box::new(std::iter::empty()),
+        }
+    }
+}
+
 impl<I, O, L> LazyMut<I, O, L> {
     pub const fn new(input: I) -> Self {
         LazyMut {
             input: Some(input),
             output: OnceCell::new(),
+            transform: PhantomData,
+        }
+    }
+
+    pub fn new_from_output(output: O) -> Self {
+        LazyMut {
+            input: None,
+            output: OnceCell::from(output),
             transform: PhantomData,
         }
     }
@@ -69,19 +99,13 @@ impl<I, O, L> LazyMut<I, O, L> {
     }
 }
 
-impl<I, O, L: LazyTransform<I, O>> std::ops::Deref for LazyMut<I, O, L> {
-    type Target = O;
-
-    fn deref(&self) -> &O {
-        self.output()
+impl<I: PartialEq, O: PartialEq, L> PartialEq for LazyMut<I, O, L> {
+    fn eq(&self, other: &Self) -> bool {
+        self.input_res() == other.input_res()
     }
 }
 
-impl<I, O, L: LazyTransform<I, O>> std::ops::DerefMut for LazyMut<I, O, L> {
-    fn deref_mut(&mut self) -> &mut O {
-        self.output_mut()
-    }
-}
+impl<I: Eq, O: Eq, L> Eq for LazyMut<I, O, L> {}
 
 impl<I, O, L: LazyTransform<I, O>> LazyMut<I, O, L> {
     pub fn output(&self) -> &O {
@@ -98,6 +122,20 @@ impl<I, O, L: LazyTransform<I, O>> LazyMut<I, O, L> {
     pub fn into_output(self) -> O {
         self.output();
         self.output.into_inner().unwrap_or_else(unreachable)
+    }
+}
+
+impl<I, O, L: LazyTransform<I, O>> std::ops::Deref for LazyMut<I, O, L> {
+    type Target = O;
+
+    fn deref(&self) -> &O {
+        self.output()
+    }
+}
+
+impl<I, O, L: LazyTransform<I, O>> std::ops::DerefMut for LazyMut<I, O, L> {
+    fn deref_mut(&mut self) -> &mut O {
+        self.output_mut()
     }
 }
 

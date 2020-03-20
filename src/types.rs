@@ -1,7 +1,8 @@
 use crate::{DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode, WasmbinEncode};
 use std::fmt::{self, Debug, Formatter};
+use arbitrary::Arbitrary;
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq)]
 pub enum ValueType {
     I32 = 0x7F,
     I64 = 0x7E,
@@ -9,7 +10,7 @@ pub enum ValueType {
     F64 = 0x7C,
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum BlockType {
     #[wasmbin(discriminant = 0x40)]
     Empty,
@@ -17,7 +18,7 @@ pub enum BlockType {
     Value(ValueType),
 }
 
-#[derive(Wasmbin, WasmbinCountable)]
+#[derive(Wasmbin, WasmbinCountable, Arbitrary, PartialEq, Eq)]
 #[wasmbin(discriminant = 0x60)]
 pub struct FuncType {
     pub params: Vec<ValueType>,
@@ -43,6 +44,7 @@ impl Debug for FuncType {
     }
 }
 
+#[derive(Arbitrary, PartialEq, Eq)]
 pub struct Limits {
     pub min: u32,
     pub max: Option<u32>,
@@ -90,23 +92,23 @@ impl WasmbinDecode for Limits {
     }
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq)]
 pub struct MemType {
     pub limits: Limits,
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum ElemType {
     FuncRef = 0x70,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq)]
 pub struct TableType {
     pub elem_type: ElemType,
     pub limits: Limits,
 }
 
-#[derive(Wasmbin, Debug)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub struct GlobalType {
     pub value_type: ValueType,
     pub mutable: bool,
