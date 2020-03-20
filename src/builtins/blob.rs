@@ -1,7 +1,24 @@
-use crate::lazy_mut::{LazyMut, LazyTransform};
 use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
 
-pub struct RawBlob<T: AsRef<[u8]> = Vec<u8>> {
+#[cfg(feature = "lazy-blob")]
+macro_rules! if_lazy {
+    (if lazy { $($then:tt)* } $(else { $($otherwise:tt)* })?) => {
+        $($then)*
+    };
+}
+
+#[cfg(not(feature = "lazy-blob"))]
+macro_rules! if_lazy {
+    (if lazy { $($then:tt)* } $(else { $($otherwise:tt)* })?) => {
+        $($($otherwise)*)?
+    };
+}
+
+if_lazy!(if lazy {
+    use crate::lazy_mut::{LazyMut, LazyTransform};
+});
+
+pub struct RawBlob<T = Vec<u8>> {
     pub contents: T,
 }
 
@@ -13,11 +30,14 @@ impl<T: AsRef<[u8]>> WasmbinEncode for RawBlob<T> {
     }
 }
 
-impl WasmbinDecode for RawBlob {
+impl<T: WasmbinDecode> WasmbinDecode for RawBlob<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let size = u32::decode(r)?;
         let mut taken = std::io::Read::take(r, size.into());
-        let contents = Vec::decode(&mut taken)?;
+        let contents = T::decode(&mut taken)?;
+        if taken.limit() != 0 {
+            return Err(DecodeError::UnrecognizedData);
+        }
         Ok(RawBlob { contents })
     }
 }
@@ -28,36 +48,56 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for RawBlob<T> {
     }
 }
 
-struct BlobTransform;
+if_lazy!(if lazy {
+    struct BlobTransform;
 
-impl<T: WasmbinDecode> LazyTransform<Box<[u8]>, Result<T, DecodeError>> for BlobTransform {
-    fn lazy_transform(input: &Box<[u8]>) -> Result<T, DecodeError> {
-        let mut slice = input.as_ref();
-        let decoded = T::decode(&mut slice)?;
-        if !slice.is_empty() {
-            return Err(DecodeError::UnrecognizedData);
+    impl<T: WasmbinDecode> LazyTransform<Box<[u8]>, Result<T, DecodeError>> for BlobTransform {
+        fn lazy_transform(input: &Box<[u8]>) -> Result<T, DecodeError> {
+            let mut slice = input.as_ref();
+            let decoded = T::decode(&mut slice)?;
+            if !slice.is_empty() {
+                return Err(DecodeError::UnrecognizedData);
+            }
+            Ok(decoded)
         }
-        Ok(decoded)
     }
-}
+
+    type BlobContents<T> = LazyMut<Box<[u8]>, T, BlobTransform>;
+
+    impl<T: WasmbinDecode> Blob<T> {
+        pub fn try_contents(&self) -> Result<&T, DecodeError> {
+            self.contents.try_output()
+        }
+
+        pub fn try_contents_mut(&mut self) -> Result<&mut T, DecodeError> {
+            self.contents.try_output_mut()
+        }
+
+        pub fn try_into_contents(self) -> Result<T, DecodeError> {
+            self.contents.try_into_output()
+        }
+    }
+} else {
+    type BlobContents<T> = T;
+
+    impl<T: WasmbinDecode> Blob<T> {
+        pub fn try_contents(&self) -> Result<&T, DecodeError> {
+            Ok(&self.contents)
+        }
+
+        pub fn try_contents_mut(&mut self) -> Result<&mut T, DecodeError> {
+            Ok(&mut self.contents)
+        }
+
+        pub fn try_into_contents(self) -> Result<T, DecodeError> {
+            Ok(self.contents)
+        }
+    }
+});
 
 #[derive(Default)]
 pub struct Blob<T> {
-    contents: LazyMut<Box<[u8]>, T, BlobTransform>,
-}
-
-impl<T: WasmbinDecode> Blob<T> {
-    pub fn try_contents(&self) -> Result<&T, DecodeError> {
-        self.contents.try_output()
-    }
-
-    pub fn try_contents_mut(&mut self) -> Result<&mut T, DecodeError> {
-        self.contents.try_output_mut()
-    }
-
-    pub fn try_into_contents(self) -> Result<T, DecodeError> {
-        self.contents.try_into_output()
-    }
+    contents: BlobContents<T>,
 }
 
 impl<T: std::fmt::Debug> std::fmt::Debug for Blob<T> {
@@ -70,28 +110,28 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Blob<T> {
 
 impl<T: WasmbinEncode> WasmbinEncode for Blob<T> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        let mut buf;
-        let buf_slice = match self.contents.input_res() {
-            Ok(input) => input.as_ref(),
-            Err(output) => {
-                buf = Vec::new();
-                output.encode(&mut buf)?;
-                buf.as_slice()
+        let output = if_lazy!(if lazy {
+            match self.contents.input_res() {
+                Ok(input) => return RawBlob { contents: input }.encode(w),
+                Err(output) => output,
             }
-        };
-        RawBlob {
-            contents: buf_slice,
-        }
-        .encode(w)
+        } else {
+            &self.contents
+        });
+        let mut buf;
+        buf = Vec::new();
+        output.encode(&mut buf)?;
+        RawBlob { contents: buf }.encode(w)
     }
 }
 
 impl<T: WasmbinDecode> WasmbinDecode for Blob<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let raw = RawBlob::decode(r)?;
-        Ok(Blob {
-            contents: LazyMut::new(raw.contents.into_boxed_slice()),
-        })
+        let contents = RawBlob::decode(r)?.contents;
+        if_lazy!(if lazy {
+            let contents = LazyMut::new(Vec::into_boxed_slice(contents));
+        });
+        Ok(Blob { contents })
     }
 }
 
