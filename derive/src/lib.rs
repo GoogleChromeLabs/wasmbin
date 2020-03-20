@@ -174,9 +174,12 @@ pub fn wasmbin_discriminants(
             syn::Fields::Unit => {}
             _ => seen_non_units = true,
         }
-        if let Some((_, discriminant)) = v.discriminant.take() {
-            v.attrs
-                .push(syn::parse_quote!(#[wasmbin(discriminant = #discriminant)]));
+        #[cfg(not(feature = "nightly"))]
+        {
+            if let Some((_, discriminant)) = v.discriminant.take() {
+                v.attrs
+                    .push(syn::parse_quote!(#[wasmbin(discriminant = #discriminant)]));
+            }
         }
     }
     assert!(
