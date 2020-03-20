@@ -5,6 +5,7 @@ use arbitrary::Arbitrary;
 use std::fmt::{self, Debug, Formatter};
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq)]
+#[repr(u8)]
 pub enum ValueType {
     I32 = 0x7F,
     I64 = 0x7E,
@@ -14,6 +15,7 @@ pub enum ValueType {
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[repr(u8)]
 pub enum BlockType {
     Empty = 0x40,
     Value(ValueType),
@@ -62,6 +64,7 @@ impl Debug for Limits {
 }
 
 #[derive(Wasmbin)]
+#[repr(u8)]
 enum LimitsRepr {
     #[wasmbin(discriminant = 0x00)]
     Min { min: u32 },
@@ -99,6 +102,7 @@ pub struct MemType {
 }
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[repr(u8)]
 pub enum ElemType {
     FuncRef = 0x70,
 }

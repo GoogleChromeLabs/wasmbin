@@ -23,6 +23,15 @@ fn discriminant_attr(v: &synstructure::VariantInfo) -> Option<syn::Lit> {
 fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
     let (encode_discriminant, decode) = match s.ast().data {
         syn::Data::Enum(_) => {
+            if !s.ast().attrs.iter().any(|attr| {
+                attr.path.is_ident("repr")
+                    && attr
+                        .parse_args::<syn::Ident>()
+                        .map_or(false, |ident| ident == "u8")
+            }) {
+                panic!("Wasmbin enums must use #[repr(u8)].");
+            }
+
             let mut decoders = quote!();
             let mut decode_other = quote!({ return Ok(None) });
 

@@ -19,6 +19,7 @@ pub struct CustomSection {
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[repr(u8)]
 pub enum ImportDesc {
     Func(TypeIdx) = 0x00,
     Table(TableType) = 0x01,
@@ -46,6 +47,7 @@ pub struct Global {
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[repr(u8)]
 pub enum ExportDesc {
     Func(FuncIdx) = 0x00,
     Table(TableIdx) = 0x01,
@@ -88,6 +90,7 @@ pub struct Data {
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Section {
     Custom(Blob<CustomSection>) = 0,
     Type(Blob<Vec<FuncType>>) = 1,

@@ -5,6 +5,7 @@ use arbitrary::Arbitrary;
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin)]
+#[repr(u8)]
 enum SeqInstructionRepr {
     Instruction(Instruction),
     End = 0x0B,
@@ -63,6 +64,7 @@ pub struct IfElse {
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin)]
+#[repr(u8)]
 enum IfElseInstructionRepr {
     Instruction(SeqInstructionRepr),
     Else = 0x05,
@@ -140,6 +142,7 @@ impl<F> Eq for FloatConst<F> where Self: PartialEq {}
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Instruction {
     Unreachable = 0x00,
     Nop = 0x01,

@@ -1,6 +1,7 @@
 use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 
 #[derive(Wasmbin)]
+#[repr(u8)]
 enum BoolRepr {
     False = 0x00,
     True = 0x01,
