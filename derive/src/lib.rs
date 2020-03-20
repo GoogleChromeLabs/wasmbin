@@ -1,10 +1,7 @@
-#[macro_use]
-extern crate synstructure;
-#[macro_use]
-extern crate quote;
-extern crate proc_macro2;
+extern crate proc_macro;
 
-use quote::ToTokens;
+use quote::{quote, ToTokens};
+use synstructure::{decl_derive, Structure};
 
 fn discriminant_attr(v: &synstructure::VariantInfo) -> Option<syn::Lit> {
     v.ast().attrs.iter().find_map(|attr| match attr {
@@ -23,7 +20,7 @@ fn discriminant_attr(v: &synstructure::VariantInfo) -> Option<syn::Lit> {
     })
 }
 
-fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
+fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
     let (encode_discriminant, decode) = match s.ast().data {
         syn::Data::Enum(_) => {
             let mut decoders = quote!();
@@ -146,10 +143,38 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
     })
 }
 
-fn wasmbin_countable_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
+fn wasmbin_countable_derive(s: Structure) -> proc_macro2::TokenStream {
     s.gen_impl(quote! {
         gen impl crate::WasmbinCountable for @Self {}
     })
+}
+
+#[proc_macro_attribute]
+pub fn wasmbin_discriminants(
+    _attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let mut input: syn::DeriveInput = syn::parse(input).unwrap();
+    let e = match &mut input.data {
+        syn::Data::Enum(e) => e,
+        _ => panic!("This attribute can only be used on enums"),
+    };
+    let mut seen_non_units = false;
+    for v in &mut e.variants {
+        match v.fields {
+            syn::Fields::Unit => {}
+            _ => seen_non_units = true,
+        }
+        if let Some((_, discriminant)) = v.discriminant.take() {
+            v.attrs
+                .push(syn::parse_quote!(#[wasmbin(discriminant = #discriminant)]));
+        }
+    }
+    assert!(
+        seen_non_units,
+        "Attribute shouldn't be used on C-like enums"
+    );
+    input.into_token_stream().into()
 }
 
 decl_derive!([Wasmbin, attributes(wasmbin)] => wasmbin_derive);

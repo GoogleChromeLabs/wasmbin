@@ -1,4 +1,6 @@
-use crate::{DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode, WasmbinEncode};
+use crate::{
+    wasmbin_discriminants, DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode, WasmbinEncode,
+};
 use arbitrary::Arbitrary;
 use std::fmt::{self, Debug, Formatter};
 
@@ -10,11 +12,10 @@ pub enum ValueType {
     F64 = 0x7C,
 }
 
+#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum BlockType {
-    #[wasmbin(discriminant = 0x40)]
-    Empty,
-
+    Empty = 0x40,
     Value(ValueType),
 }
 

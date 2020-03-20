@@ -2,7 +2,7 @@
 #![allow(clippy::missing_errors_doc)]
 
 use thiserror::Error;
-use wasmbin_derive::{Wasmbin, WasmbinCountable};
+use wasmbin_derive::{wasmbin_discriminants, Wasmbin, WasmbinCountable};
 
 pub mod builtins;
 

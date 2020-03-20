@@ -3,8 +3,8 @@ use crate::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instructions::Expression;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
 use crate::{
-    DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode, WasmbinDecodeWithDiscriminant,
-    WasmbinEncode,
+    wasmbin_discriminants, DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode,
+    WasmbinDecodeWithDiscriminant, WasmbinEncode,
 };
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
@@ -17,19 +17,13 @@ pub struct CustomSection {
     pub data: Vec<u8>,
 }
 
+#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum ImportDesc {
-    #[wasmbin(discriminant = 0x00)]
-    Func(TypeIdx),
-
-    #[wasmbin(discriminant = 0x01)]
-    Table(TableType),
-
-    #[wasmbin(discriminant = 0x02)]
-    Mem(MemType),
-
-    #[wasmbin(discriminant = 0x03)]
-    Global(GlobalType),
+    Func(TypeIdx) = 0x00,
+    Table(TableType) = 0x01,
+    Mem(MemType) = 0x02,
+    Global(GlobalType) = 0x03,
 }
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
@@ -50,19 +44,13 @@ pub struct Global {
     pub init: Expression,
 }
 
+#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum ExportDesc {
-    #[wasmbin(discriminant = 0x00)]
-    Func(FuncIdx),
-
-    #[wasmbin(discriminant = 0x01)]
-    Table(TableIdx),
-
-    #[wasmbin(discriminant = 0x02)]
-    Mem(MemIdx),
-
-    #[wasmbin(discriminant = 0x03)]
-    Global(GlobalIdx),
+    Func(FuncIdx) = 0x00,
+    Table(TableIdx) = 0x01,
+    Mem(MemIdx) = 0x02,
+    Global(GlobalIdx) = 0x03,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq)]
@@ -98,43 +86,21 @@ pub struct Data {
     pub init: RawBlob,
 }
 
+#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum Section {
-    #[wasmbin(discriminant = 0)]
-    Custom(Blob<CustomSection>),
-
-    #[wasmbin(discriminant = 1)]
-    Type(Blob<Vec<FuncType>>),
-
-    #[wasmbin(discriminant = 2)]
-    Import(Blob<Vec<Import>>),
-
-    #[wasmbin(discriminant = 3)]
-    Function(Blob<Vec<TypeIdx>>),
-
-    #[wasmbin(discriminant = 4)]
-    Table(Blob<Vec<TableType>>),
-
-    #[wasmbin(discriminant = 5)]
-    Memory(Blob<Vec<MemType>>),
-
-    #[wasmbin(discriminant = 6)]
-    Global(Blob<Vec<Global>>),
-
-    #[wasmbin(discriminant = 7)]
-    Export(Blob<Vec<Export>>),
-
-    #[wasmbin(discriminant = 8)]
-    Start(Blob<FuncIdx>),
-
-    #[wasmbin(discriminant = 9)]
-    Element(Blob<Vec<Element>>),
-
-    #[wasmbin(discriminant = 10)]
-    Code(Blob<Vec<Blob<Func>>>),
-
-    #[wasmbin(discriminant = 11)]
-    Data(Blob<Vec<Data>>),
+    Custom(Blob<CustomSection>) = 0,
+    Type(Blob<Vec<FuncType>>) = 1,
+    Import(Blob<Vec<Import>>) = 2,
+    Function(Blob<Vec<TypeIdx>>) = 3,
+    Table(Blob<Vec<TableType>>) = 4,
+    Memory(Blob<Vec<MemType>>) = 5,
+    Global(Blob<Vec<Global>>) = 6,
+    Export(Blob<Vec<Export>>) = 7,
+    Start(Blob<FuncIdx>) = 8,
+    Element(Blob<Vec<Element>>) = 9,
+    Code(Blob<Vec<Blob<Func>>>) = 10,
+    Data(Blob<Vec<Data>>) = 11,
 }
 
 impl WasmbinEncode for [Section] {
