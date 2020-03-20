@@ -32,10 +32,10 @@ macro_rules! bench_group {
             }
 
             #[bench]
-            fn bench_parse_mmap(b: &mut Bencher) {
+            fn bench_parse_vec(b: &mut Bencher) {
+                let f = std::fs::read("temp.wasm").unwrap();
                 b.iter(|| {
-                    let f = File::open("temp.wasm").unwrap();
-                    let mut f = &*unsafe { memmap::Mmap::map(&f) }.unwrap();
+                    let mut f = f.as_slice();
                     let m = Module::decode(&mut f).unwrap();
                     black_box(m)
                 })
@@ -44,8 +44,8 @@ macro_rules! bench_group {
             #[bench]
             fn bench_write(b: &mut Bencher) {
                 let m = {
-                    let f = File::open("temp.wasm").unwrap();
-                    let mut f = &*unsafe { memmap::Mmap::map(&f) }.unwrap();
+                    let f = std::fs::read("temp.wasm").unwrap();
+                    let mut f = f.as_slice();
                     Module::decode(&mut f).unwrap()
                 };
                 b.iter(|| {
@@ -57,8 +57,8 @@ macro_rules! bench_group {
             #[bench]
             fn bench_write_buf(b: &mut Bencher) {
                 let m = {
-                    let f = File::open("temp.wasm").unwrap();
-                    let mut f = &*unsafe { memmap::Mmap::map(&f) }.unwrap();
+                    let f = std::fs::read("temp.wasm").unwrap();
+                    let mut f = f.as_slice();
                     Module::decode(&mut f).unwrap()
                 };
                 b.iter(|| {
