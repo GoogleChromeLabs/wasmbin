@@ -55,9 +55,7 @@ pub trait WasmbinDecodeWithDiscriminant: WasmbinDecode {
         Self::maybe_decode_with_discriminant(discriminant, r)?
             .ok_or_else(|| DecodeError::UnsupportedDiscriminant { discriminant })
     }
-}
 
-impl<T: WasmbinDecodeWithDiscriminant> WasmbinDecode for T {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Self::decode_with_discriminant(u8::decode(r)?, r)
     }

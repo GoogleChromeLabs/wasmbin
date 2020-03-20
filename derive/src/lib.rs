@@ -75,6 +75,12 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                             }))
                         }
                     }
+
+                    gen impl WasmbinDecode for @Self {
+                        fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                            WasmbinDecodeWithDiscriminant::decode(r)
+                        }
+                    }
                 }
             )
         }
@@ -93,6 +99,12 @@ fn wasmbin_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                                 #discriminant => Some(#construct),
                                 _ => None
                             })
+                        }
+                    }
+
+                    gen impl WasmbinDecode for @Self {
+                        fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                            WasmbinDecodeWithDiscriminant::decode(r)
                         }
                     }
                 }),
