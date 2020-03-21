@@ -1,9 +1,5 @@
-#![feature(test)]
-
-extern crate test;
-
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::fs::File;
-use test::{black_box, Bencher};
 use wasmbin::{WasmbinDecode, WasmbinEncode};
 
 macro_rules! bench_group {
@@ -12,60 +8,85 @@ macro_rules! bench_group {
             use super::*;
             use wasmbin::$name::Module;
 
-            #[bench]
-            fn bench_parse(b: &mut Bencher) {
-                b.iter(|| {
-                    let mut f = File::open("temp.wasm").unwrap();
-                    let m = Module::decode(&mut f).unwrap();
-                    black_box(m)
-                })
+            fn bench_parse(c: &mut Criterion) {
+                c.bench_function(concat!(stringify!($name), "::bench_parse"), |b| {
+                    b.iter(|| {
+                        let mut f = File::open("temp.wasm").unwrap();
+                        Module::decode(&mut f).unwrap()
+                    })
+                });
             }
 
-            #[bench]
-            fn bench_parse_buf(b: &mut Bencher) {
-                b.iter(|| {
-                    let f = File::open("temp.wasm").unwrap();
-                    let mut f = std::io::BufReader::new(f);
-                    let m = Module::decode(&mut f).unwrap();
-                    black_box(m)
-                })
+            fn bench_parse_buf(c: &mut Criterion) {
+                c.bench_function(concat!(stringify!($name), "::bench_parse_buf"), |b| {
+                    b.iter(|| {
+                        let f = File::open("temp.wasm").unwrap();
+                        let mut f = std::io::BufReader::new(f);
+                        Module::decode(&mut f).unwrap()
+                    })
+                });
             }
 
-            #[bench]
-            fn bench_parse_vec(b: &mut Bencher) {
+            fn bench_parse_vec(c: &mut Criterion) {
                 let f = std::fs::read("temp.wasm").unwrap();
-                b.iter(|| {
-                    let mut f = f.as_slice();
-                    let m = Module::decode(&mut f).unwrap();
-                    black_box(m)
-                })
+                c.bench_function(concat!(stringify!($name), "::bench_parse_vec"), |b| {
+                    b.iter(|| {
+                        let mut f = black_box(f.as_slice());
+                        Module::decode(&mut f).unwrap()
+                    })
+                });
             }
 
-            #[bench]
-            fn bench_write(b: &mut Bencher) {
-                let m = {
-                    let f = std::fs::read("temp.wasm").unwrap();
-                    let mut f = f.as_slice();
-                    Module::decode(&mut f).unwrap()
-                };
-                b.iter(|| {
-                    let mut f = File::create("temp.out.wasm").unwrap();
-                    black_box(&m).encode(&mut f).unwrap();
-                })
+            fn read_module() -> Module {
+                let f = std::fs::read("temp.wasm").unwrap();
+                let mut f = f.as_slice();
+                Module::decode(&mut f).unwrap()
             }
 
-            #[bench]
-            fn bench_write_buf(b: &mut Bencher) {
-                let m = {
-                    let f = std::fs::read("temp.wasm").unwrap();
-                    let mut f = f.as_slice();
-                    Module::decode(&mut f).unwrap()
-                };
-                b.iter(|| {
-                    let f = File::create("temp.out.wasm").unwrap();
-                    let mut f = std::io::BufWriter::new(f);
-                    black_box(&m).encode(&mut f).unwrap();
-                })
+            fn bench_write(c: &mut Criterion) {
+                let m = read_module();
+                c.bench_function(concat!(stringify!($name), "::bench_write"), |b| {
+                    b.iter(|| {
+                        let mut f = File::create("temp.out.wasm").unwrap();
+                        black_box(&m).encode(&mut f).unwrap();
+                        f
+                    })
+                });
+            }
+
+            fn bench_write_buf(c: &mut Criterion) {
+                let m = read_module();
+                c.bench_function(concat!(stringify!($name), "::bench_write_buf"), |b| {
+                    b.iter(|| {
+                        let f = File::create("temp.out.wasm").unwrap();
+                        let mut f = std::io::BufWriter::new(f);
+                        black_box(&m).encode(&mut f).unwrap();
+                        f
+                    })
+                });
+            }
+
+            fn bench_write_vec(c: &mut Criterion) {
+                let m = read_module();
+                c.bench_function(concat!(stringify!($name), "::bench_write_vec"), |b| {
+                    b.iter(|| {
+                        let mut f = Vec::new();
+                        black_box(&m).encode(&mut f).unwrap();
+                        f
+                    })
+                });
+            }
+
+            criterion_group! {
+                name = benches;
+                config = Criterion::default().sample_size(20);
+                targets =
+                    bench_parse,
+                    bench_parse_buf,
+                    bench_parse_vec,
+                    bench_write,
+                    bench_write_buf,
+                    bench_write_vec,
             }
         }
     };
@@ -73,3 +94,4 @@ macro_rules! bench_group {
 
 bench_group!(module);
 bench_group!(typed_module);
+criterion_main!(module::benches, typed_module::benches);
