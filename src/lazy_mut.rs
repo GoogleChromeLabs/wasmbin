@@ -193,3 +193,27 @@ where
     L::Output: Eq,
 {
 }
+
+impl<L: LazyTransform> std::hash::Hash for LazyMut<L>
+where
+    L::Output: std::hash::Hash,
+{
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        // Unlike in case with equality, we must take a hash of the output
+        // here so that we can find some value later when it's evaluated.
+        self.try_output().ok().hash(h)
+    }
+}
+
+impl<L: LazyTransform> Clone for LazyMut<L>
+where
+    L::Input: Clone,
+    L::Output: Clone,
+{
+    fn clone(&self) -> Self {
+        LazyMut {
+            input: self.input.clone(),
+            output: self.output.clone(),
+        }
+    }
+}

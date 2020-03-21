@@ -32,7 +32,7 @@ impl WasmbinDecode for Vec<Instruction> {
     }
 }
 
-#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq, Eq)]
+#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct Expression(Vec<Instruction>);
 
 impl std::ops::Deref for Expression {
@@ -49,13 +49,13 @@ impl std::ops::DerefMut for Expression {
     }
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct BlockBody {
     pub return_type: BlockType,
     pub expr: Expression,
 }
 
-#[derive(Debug, Arbitrary, PartialEq, Eq)]
+#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct IfElse {
     pub return_type: BlockType,
     pub then: Expression,
@@ -111,7 +111,7 @@ impl WasmbinDecode for IfElse {
     }
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
@@ -121,7 +121,7 @@ pub struct MemArg {
 ///
 /// This is useful in instruction context, where we don't care
 /// about general floating number rules.
-#[derive(Wasmbin, Debug, Arbitrary)]
+#[derive(Wasmbin, Debug, Arbitrary, Clone)]
 pub struct FloatConst<F> {
     pub value: F,
 }
@@ -140,8 +140,20 @@ impl PartialEq for FloatConst<f64> {
 
 impl<F> Eq for FloatConst<F> where Self: PartialEq {}
 
+impl std::hash::Hash for FloatConst<f32> {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        h.write(&self.value.to_ne_bytes())
+    }
+}
+
+impl std::hash::Hash for FloatConst<f64> {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        h.write(&self.value.to_ne_bytes())
+    }
+}
+
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 #[repr(u8)]
 pub enum Instruction {
     Unreachable = 0x00,

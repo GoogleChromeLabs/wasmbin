@@ -20,7 +20,7 @@ if_lazy!(if lazy {
     use std::marker::PhantomData;
 });
 
-#[derive(Debug, Arbitrary, PartialEq, Eq)]
+#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct RawBlob<T = Vec<u8>> {
     pub contents: T,
 }
@@ -102,7 +102,7 @@ if_lazy!(if lazy {
     }
 });
 
-#[derive(Default, Arbitrary, PartialEq, Eq)]
+#[derive(Default, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct Blob<T: WasmbinDecode> {
     contents: BlobContents<T>,
 }
