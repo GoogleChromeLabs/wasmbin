@@ -1,6 +1,6 @@
 use crate::{DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode, WasmbinEncode};
-use std::fmt::{self, Debug, Formatter};
 use arbitrary::Arbitrary;
+use std::fmt::{self, Debug, Formatter};
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq)]
 pub enum ValueType {

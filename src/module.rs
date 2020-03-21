@@ -24,7 +24,7 @@ impl WasmbinDecode for MagicAndVersion {
     }
 }
 
-#[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq)]
+#[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq, Eq)]
 pub struct Module {
     magic_and_version: MagicAndVersion,
     pub sections: Vec<Section>,

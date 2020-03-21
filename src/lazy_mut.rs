@@ -1,6 +1,5 @@
-use once_cell::unsync::OnceCell;
-use std::marker::PhantomData;
 use arbitrary::Arbitrary;
+use once_cell::unsync::OnceCell;
 
 #[cfg(debug_assertions)]
 fn unreachable<T>() -> T {
@@ -12,17 +11,26 @@ fn unreachable<T>() -> T {
     unsafe { std::hint::unreachable_unchecked() }
 }
 
-pub trait LazyTransform<I, O> {
-    fn lazy_transform(input: &I) -> O;
+pub enum NoError {}
+
+pub trait LazyTransform {
+    type Input;
+    type Output;
+    type Error;
+
+    fn lazy_transform(input: &Self::Input) -> Result<Self::Output, Self::Error>;
 }
 
-pub struct LazyMut<I, O, L> {
-    input: Option<I>,
-    output: OnceCell<O>,
-    transform: PhantomData<L>,
+pub struct LazyMut<L: LazyTransform> {
+    input: Option<L::Input>,
+    output: OnceCell<L::Output>,
 }
 
-impl<I: std::fmt::Debug, O: std::fmt::Debug, L> std::fmt::Debug for LazyMut<I, O, L> {
+impl<L: LazyTransform> std::fmt::Debug for LazyMut<L>
+where
+    L::Input: std::fmt::Debug,
+    L::Output: std::fmt::Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("LazyMut")
             .field("input", &self.input_opt())
@@ -31,23 +39,20 @@ impl<I: std::fmt::Debug, O: std::fmt::Debug, L> std::fmt::Debug for LazyMut<I, O
     }
 }
 
-impl<I: Default, O, L> Default for LazyMut<I, O, L> {
-    fn default() -> Self {
-        LazyMut::new(Default::default())
-    }
-}
-
-impl<I: 'static, O: Arbitrary, L: 'static> Arbitrary for LazyMut<I, O, L> {
+impl<L: 'static + LazyTransform> Arbitrary for LazyMut<L>
+where
+    L::Output: Arbitrary,
+{
     fn arbitrary(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Self> {
-        O::arbitrary(u).map(LazyMut::new_from_output)
+        L::Output::arbitrary(u).map(LazyMut::new_from_output)
     }
 
     fn arbitrary_take_rest(u: arbitrary::Unstructured) -> arbitrary::Result<Self> {
-        O::arbitrary_take_rest(u).map(LazyMut::new_from_output)
+        L::Output::arbitrary_take_rest(u).map(LazyMut::new_from_output)
     }
 
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
-        O::size_hint(depth)
+        L::Output::size_hint(depth)
     }
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
@@ -58,110 +63,133 @@ impl<I: 'static, O: Arbitrary, L: 'static> Arbitrary for LazyMut<I, O, L> {
     }
 }
 
-impl<I, O, L> LazyMut<I, O, L> {
-    pub const fn new(input: I) -> Self {
+impl<L: LazyTransform> Default for LazyMut<L>
+where
+    L::Input: Default,
+    L::Output: Default,
+{
+    fn default() -> Self {
+        Self::new_with_output_unchecked(Default::default(), Default::default())
+    }
+}
+
+impl<L: LazyTransform> LazyMut<L> {
+    pub fn new(input: L::Input) -> Self {
         LazyMut {
             input: Some(input),
             output: OnceCell::new(),
-            transform: PhantomData,
         }
     }
 
-    pub fn new_from_output(output: O) -> Self {
+    pub fn new_from_output(output: L::Output) -> Self {
         LazyMut {
             input: None,
             output: OnceCell::from(output),
-            transform: PhantomData,
         }
     }
 
-    pub fn input_opt(&self) -> Option<&I> {
+    pub fn new_with_output_unchecked(input: L::Input, output: L::Output) -> Self {
+        LazyMut {
+            input: Some(input),
+            output: OnceCell::from(output),
+        }
+    }
+
+    pub fn input_opt(&self) -> Option<&L::Input> {
         self.input.as_ref()
     }
 
-    pub fn input_res(&self) -> Result<&I, &O> {
+    pub fn input_res(&self) -> Result<&L::Input, &L::Output> {
         self.input_opt()
             .ok_or_else(|| self.output_opt().unwrap_or_else(unreachable))
     }
 
-    pub fn output_opt(&self) -> Option<&O> {
+    pub fn output_opt(&self) -> Option<&L::Output> {
         self.output.get()
     }
 
-    pub fn output_opt_mut(&mut self) -> Option<&mut O> {
+    pub fn output_opt_mut(&mut self) -> Option<&mut L::Output> {
         self.input = None;
         self.output.get_mut()
     }
 
-    pub fn set_output(&mut self, output: O) {
+    pub fn set_output(&mut self, output: L::Output) {
         self.input = None;
         self.output = OnceCell::from(output);
     }
-}
 
-impl<I: PartialEq, O: PartialEq, L> PartialEq for LazyMut<I, O, L> {
-    fn eq(&self, other: &Self) -> bool {
-        self.input_res() == other.input_res()
-    }
-}
-
-impl<I: Eq, O: Eq, L> Eq for LazyMut<I, O, L> {}
-
-impl<I, O, L: LazyTransform<I, O>> LazyMut<I, O, L> {
-    pub fn output(&self) -> &O {
-        let input = &self.input;
-        self.output
-            .get_or_init(|| L::lazy_transform(input.as_ref().unwrap_or_else(unreachable)))
-    }
-
-    pub fn output_mut(&mut self) -> &mut O {
-        self.output();
-        self.output_opt_mut().unwrap_or_else(unreachable)
-    }
-
-    pub fn into_output(self) -> O {
-        self.output();
-        self.output.into_inner().unwrap_or_else(unreachable)
-    }
-}
-
-impl<I, O, L: LazyTransform<I, O>> std::ops::Deref for LazyMut<I, O, L> {
-    type Target = O;
-
-    fn deref(&self) -> &O {
-        self.output()
-    }
-}
-
-impl<I, O, L: LazyTransform<I, O>> std::ops::DerefMut for LazyMut<I, O, L> {
-    fn deref_mut(&mut self) -> &mut O {
-        self.output_mut()
-    }
-}
-
-impl<I, O, L> LazyMut<I, O, L> {
-    pub fn try_output<E>(&self) -> Result<&O, E>
-    where
-        L: LazyTransform<I, Result<O, E>>,
-    {
+    pub fn try_output(&self) -> Result<&L::Output, L::Error> {
         let input = &self.input;
         self.output
             .get_or_try_init(|| L::lazy_transform(input.as_ref().unwrap_or_else(unreachable)))
     }
 
-    pub fn try_output_mut<E>(&mut self) -> Result<&mut O, E>
-    where
-        L: LazyTransform<I, Result<O, E>>,
-    {
+    pub fn try_output_mut(&mut self) -> Result<&mut L::Output, L::Error> {
         self.try_output()?;
         self.output_opt_mut().ok_or_else(unreachable)
     }
 
-    pub fn try_into_output<E>(self) -> Result<O, E>
-    where
-        L: LazyTransform<I, Result<O, E>>,
-    {
+    pub fn try_into_output(self) -> Result<L::Output, L::Error> {
         self.try_output()?;
         self.output.into_inner().ok_or_else(unreachable)
     }
+}
+
+impl<L: LazyTransform<Error = NoError>> LazyMut<L> {
+    pub fn output(&self) -> &L::Output {
+        self.try_output().unwrap_or_else(|err| match err {})
+    }
+
+    pub fn output_mut(&mut self) -> &mut L::Output {
+        self.try_output_mut().unwrap_or_else(|err| match err {})
+    }
+
+    pub fn into_output(self) -> L::Output {
+        self.try_into_output().unwrap_or_else(|err| match err {})
+    }
+}
+
+impl<L: LazyTransform<Error = NoError>> std::ops::Deref for LazyMut<L> {
+    type Target = L::Output;
+
+    fn deref(&self) -> &L::Output {
+        self.output()
+    }
+}
+
+impl<L: LazyTransform<Error = NoError>> std::ops::DerefMut for LazyMut<L> {
+    fn deref_mut(&mut self) -> &mut L::Output {
+        self.output_mut()
+    }
+}
+
+impl<L: LazyTransform> PartialEq for LazyMut<L>
+where
+    L::Input: PartialEq,
+    L::Output: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        if let (Some(a), Some(b)) = (self.input_opt(), other.input_opt()) {
+            return a == b;
+        }
+        match (self.try_output(), other.try_output()) {
+            (Ok(a), Ok(b)) => a == b,
+
+            // If one of the transforms errored out, treat containers as unequal.
+            (Ok(_), Err(_)) | (Err(_), Ok(_)) => false,
+
+            // We can't reach this because it would mean we tried to
+            // invoke transform on both containers, which, in turn,
+            // means they both were in "input" state, which would be
+            // handled by the first check in this function.
+            (Err(_), Err(_)) => unreachable(),
+        }
+    }
+}
+
+impl<L: LazyTransform> Eq for LazyMut<L>
+where
+    L::Input: Eq,
+    L::Output: Eq,
+{
 }

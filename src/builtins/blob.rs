@@ -1,5 +1,6 @@
 use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
 use arbitrary::Arbitrary;
+use std::marker::PhantomData;
 
 #[cfg(feature = "lazy-blob")]
 macro_rules! if_lazy {
@@ -51,9 +52,13 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for RawBlob<T> {
 }
 
 if_lazy!(if lazy {
-    pub struct BlobTransform;
+    pub struct BlobTransform<T>(PhantomData<T>);
 
-    impl<T: WasmbinDecode> LazyTransform<Box<[u8]>, Result<T, DecodeError>> for BlobTransform {
+    impl<T: WasmbinDecode> LazyTransform for BlobTransform<T> {
+        type Input = Box<[u8]>;
+        type Output = T;
+        type Error = DecodeError;
+
         fn lazy_transform(input: &Box<[u8]>) -> Result<T, DecodeError> {
             let mut slice = input.as_ref();
             let decoded = T::decode(&mut slice)?;
@@ -64,7 +69,7 @@ if_lazy!(if lazy {
         }
     }
 
-    type BlobContents<T> = LazyMut<Box<[u8]>, T, BlobTransform>;
+    type BlobContents<T> = LazyMut<BlobTransform<T>>;
 
     impl<T: WasmbinDecode> Blob<T> {
         pub fn try_contents(&self) -> Result<&T, DecodeError> {
@@ -98,11 +103,11 @@ if_lazy!(if lazy {
 });
 
 #[derive(Default, Arbitrary, PartialEq, Eq)]
-pub struct Blob<T> {
+pub struct Blob<T: WasmbinDecode> {
     contents: BlobContents<T>,
 }
 
-impl<T: std::fmt::Debug> std::fmt::Debug for Blob<T> {
+impl<T: WasmbinDecode + std::fmt::Debug> std::fmt::Debug for Blob<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.write_str("Blob(")?;
         self.contents.fmt(f)?;
@@ -110,7 +115,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Blob<T> {
     }
 }
 
-impl<T: WasmbinEncode> WasmbinEncode for Blob<T> {
+impl<T: WasmbinDecode + WasmbinEncode> WasmbinEncode for Blob<T> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         let output = if_lazy!(if lazy {
             match self.contents.input_res() {
@@ -137,4 +142,4 @@ impl<T: WasmbinDecode> WasmbinDecode for Blob<T> {
     }
 }
 
-impl<T: WasmbinCountable> WasmbinCountable for Blob<T> {}
+impl<T: WasmbinDecode + WasmbinCountable> WasmbinCountable for Blob<T> {}

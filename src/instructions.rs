@@ -32,7 +32,7 @@ impl WasmbinDecode for Vec<Instruction> {
     }
 }
 
-#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq)]
+#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq, Eq)]
 pub struct Expression(Vec<Instruction>);
 
 impl std::ops::Deref for Expression {
@@ -49,13 +49,13 @@ impl std::ops::DerefMut for Expression {
     }
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub struct BlockBody {
     pub return_type: BlockType,
     pub expr: Expression,
 }
 
-#[derive(Debug, Arbitrary, PartialEq)]
+#[derive(Debug, Arbitrary, PartialEq, Eq)]
 pub struct IfElse {
     pub return_type: BlockType,
     pub then: Expression,
@@ -111,13 +111,36 @@ impl WasmbinDecode for IfElse {
     }
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq)]
+/// A wrapper around floats that treats `NaN`s as equal.
+///
+/// This is useful in instruction context, where we don't care
+/// about general floating number rules.
+#[derive(Wasmbin, Debug, Arbitrary)]
+pub struct FloatConst<F> {
+    pub value: F,
+}
+
+impl PartialEq for FloatConst<f32> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value || self.value.is_nan() && other.value.is_nan()
+    }
+}
+
+impl PartialEq for FloatConst<f64> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value || self.value.is_nan() && other.value.is_nan()
+    }
+}
+
+impl<F> Eq for FloatConst<F> where Self: PartialEq {}
+
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 pub enum Instruction {
     #[wasmbin(discriminant = 0x00)]
     Unreachable,
@@ -258,10 +281,10 @@ pub enum Instruction {
     I64Const(i64),
 
     #[wasmbin(discriminant = 0x43)]
-    F32Const(f32),
+    F32Const(FloatConst<f32>),
 
     #[wasmbin(discriminant = 0x44)]
-    F64Const(f64),
+    F64Const(FloatConst<f64>),
 
     #[wasmbin(discriminant = 0x45)]
     I32Eqz,
