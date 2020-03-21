@@ -1,6 +1,5 @@
 use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
 use arbitrary::Arbitrary;
-use std::marker::PhantomData;
 
 #[cfg(feature = "lazy-blob")]
 macro_rules! if_lazy {
@@ -18,6 +17,7 @@ macro_rules! if_lazy {
 
 if_lazy!(if lazy {
     use crate::lazy_mut::{LazyMut, LazyTransform};
+    use std::marker::PhantomData;
 });
 
 #[derive(Debug, Arbitrary, PartialEq, Eq)]
