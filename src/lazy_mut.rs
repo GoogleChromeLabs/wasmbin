@@ -169,20 +169,22 @@ where
     L::Output: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
+        // Fast path: both LazyMuts are in the "input" state and inputs are equal.
+        // Assume that outputs will be equal too, and don't invoke transforms.
+        // If inputs are not equal, it doesn't yet mean that outputs are not equal
+        // too, so carry on with full output comparison.
         if let (Some(a), Some(b)) = (self.input_opt(), other.input_opt()) {
-            return a == b;
+            if a == b {
+                return true;
+            }
         }
+        // Slower path: inputs are not equal or at least one of the LazyMuts
+        // is in the "output" state.
         match (self.try_output(), other.try_output()) {
             (Ok(a), Ok(b)) => a == b,
-
-            // If one of the transforms errored out, treat containers as unequal.
-            (Ok(_), Err(_)) | (Err(_), Ok(_)) => false,
-
-            // We can't reach this because it would mean we tried to
-            // invoke transform on both containers, which, in turn,
-            // means they both were in "input" state, which would be
-            // handled by the first check in this function.
-            (Err(_), Err(_)) => unreachable(),
+            // If at least one of the transforms errored out, treat containers
+            // as unequal.
+            _ => false,
         }
     }
 }
