@@ -11,6 +11,10 @@ fn unreachable<T>() -> T {
     unsafe { std::hint::unreachable_unchecked() }
 }
 
+#[cfg(feature = "nightly")]
+pub type NoError = !;
+
+#[cfg(not(feature = "nightly"))]
 pub enum NoError {}
 
 pub trait LazyTransform {

@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "nightly", feature(arbitrary_enum_discriminant))]
+#![cfg_attr(feature = "nightly", feature(arbitrary_enum_discriminant, never_type))]
 #![warn(clippy::all, clippy::pedantic)]
 #![allow(clippy::missing_errors_doc)]
 
