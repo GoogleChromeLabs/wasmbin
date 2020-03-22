@@ -1,5 +1,6 @@
 use crate::builtins::blob::{Blob, RawBlob};
-use crate::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
+use crate::builtins::lazy::Lazy;
+use crate::indices::{FuncIdx, GlobalIdx, LocalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instructions::Expression;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
 use crate::{
@@ -9,12 +10,107 @@ use crate::{
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
 
-#[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
-pub struct CustomSection {
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+pub struct ModuleNameSubSection {
     pub name: String,
+}
 
-    #[debug(with = "custom_debug::hexbuf_str")]
-    pub data: Vec<u8>,
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+pub struct NameAssoc<I, V> {
+    pub index: I,
+    pub value: V,
+}
+
+impl<I, V> WasmbinCountable for NameAssoc<I, V> {}
+
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+pub struct NameMap<I, V> {
+    pub items: Vec<NameAssoc<I, V>>,
+}
+
+#[wasmbin_discriminants]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[repr(u8)]
+pub enum NameSubSection {
+    Module(Blob<String>) = 0,
+    Func(Blob<NameMap<FuncIdx, String>>) = 1,
+    Local(Blob<NameMap<FuncIdx, NameMap<LocalIdx, String>>>) = 2,
+}
+
+impl WasmbinEncode for [NameSubSection] {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        for sub in self {
+            sub.encode(w)?;
+        }
+        Ok(())
+    }
+}
+
+impl WasmbinDecode for Vec<NameSubSection> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        let mut sub = Vec::new();
+        loop {
+            match u8::decode(r) {
+                Err(DecodeError::Io(err)) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    return Ok(sub);
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+                Ok(discriminant) => {
+                    sub.push(NameSubSection::decode_with_discriminant(discriminant, r)?);
+                }
+            }
+        }
+    }
+}
+
+macro_rules! define_custom_sections {
+    ($($name:ident($ty:ty) = $disc:literal,)*) => {
+        #[derive(CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+        pub enum CustomSection {
+            $($name(Lazy<$ty>),)*
+
+            Other {
+                name: String,
+
+                #[debug(with = "custom_debug::hexbuf_str")]
+                data: Vec<u8>,
+            },
+        }
+
+        impl WasmbinEncode for CustomSection {
+            fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+                match self {
+                    $(CustomSection::$name(data) => {
+                        $disc.encode(w)?;
+                        data.encode(w)
+                    })*
+                    CustomSection::Other { name, data } => {
+                        name.encode(w)?;
+                        data.encode(w)
+                    }
+                }
+            }
+        }
+
+        impl WasmbinDecode for CustomSection {
+            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                let name = String::decode(r)?;
+                Ok(match name.as_str() {
+                    $($disc => CustomSection::$name(Lazy::decode(r)?))*,
+                    _ => CustomSection::Other {
+                        name,
+                        data: Vec::decode(r)?,
+                    },
+                })
+            }
+        }
+    };
+}
+
+define_custom_sections! {
+    Name(Vec<NameSubSection>) = "name",
 }
 
 #[wasmbin_discriminants]
