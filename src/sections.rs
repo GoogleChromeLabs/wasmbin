@@ -154,10 +154,15 @@ pub struct Export {
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+pub struct ElementInit {
+    pub offset: Expression,
+    pub funcs: Vec<FuncId>,
+}
+
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct Element {
     pub table: TableId,
-    pub offset: Expression,
-    pub init: Vec<FuncId>,
+    pub init: ElementInit,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
@@ -167,17 +172,22 @@ pub struct Locals {
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone)]
-pub struct Func {
+pub struct FuncBody {
     pub locals: Vec<Locals>,
-    pub body: Expression,
+    pub expr: Expression,
+}
+
+#[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+pub struct DataInit {
+    pub offset: Expression,
+    #[debug(with = "custom_debug::hexbuf_str")]
+    pub blob: RawBlob,
 }
 
 #[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct Data {
     pub memory: MemId,
-    pub offset: Expression,
-    #[debug(with = "custom_debug::hexbuf_str")]
-    pub init: RawBlob,
+    pub init: DataInit,
 }
 
 pub trait Payload: WasmbinEncode + WasmbinDecode + Into<Section> {
@@ -283,7 +293,7 @@ define_sections! {
     Export(Vec<super::Export>) = 7,
     Start(super::FuncId) = 8,
     Element(Vec<super::Element>) = 9,
-    Code(Vec<super::Blob<super::Func>>) = 10,
+    Code(Vec<super::Blob<super::FuncBody>>) = 10,
     Data(Vec<super::Data>) = 11,
 }
 

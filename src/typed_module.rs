@@ -1,154 +1,200 @@
-use crate::builtins::blob::{Blob, RawBlob};
+use crate::builtins::blob::Blob;
+use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
-use crate::sections::CustomSection;
-use crate::sections::Func;
-use crate::sections::{ExportDesc, ImportDesc, ImportPath, Section};
-use crate::types::FuncType;
-use crate::types::GlobalType;
-use crate::types::MemType;
-use crate::types::TableType;
+use crate::sections::{
+    CustomSection, DataInit, ElementInit, ExportDesc, ImportDesc, ImportPath, NameSubSection,
+    RawCustomSection, Section,
+};
+use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
 use crate::{DecodeError, WasmbinDecode, WasmbinEncode};
-use custom_debug::CustomDebug;
-use std::cell::{Ref, RefCell, RefMut};
 use std::convert::TryFrom;
 use std::iter::{Extend, FromIterator};
-use std::rc::Rc;
+use std::marker::PhantomData;
 
-type Item<T> = Rc<RefCell<T>>;
-
-fn to_item<T>(value: T) -> Option<Item<T>> {
-    Some(Rc::new(RefCell::new(value)))
+pub struct Map<I, T> {
+    items: Vec<Option<T>>,
+    id_marker: PhantomData<fn() -> I>,
 }
 
-pub struct IndexedCollection<T> {
-    items: Vec<Option<Item<T>>>,
-    deleted: Vec<u32>,
-}
-
-impl<T> Default for IndexedCollection<T> {
+impl<I, T> Default for Map<I, T> {
     fn default() -> Self {
         Self {
-            items: Vec::new(),
-            deleted: Vec::new(),
+            items: Vec::default(),
+            id_marker: PhantomData,
         }
     }
 }
 
-impl<T> FromIterator<T> for IndexedCollection<T> {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        IndexedCollection {
-            items: iter.into_iter().map(to_item).collect(),
-            deleted: Vec::new(),
+impl<I, T> Extend<T> for Map<I, T> {
+    fn extend<Iter: IntoIterator<Item = T>>(&mut self, iter: Iter) {
+        self.items.extend(iter.into_iter().map(Some))
+    }
+}
+
+impl<I, T> FromIterator<T> for Map<I, T> {
+    fn from_iter<Iter: IntoIterator<Item = T>>(iter: Iter) -> Self {
+        Map {
+            items: iter.into_iter().map(Some).collect(),
+            id_marker: PhantomData,
         }
     }
 }
 
-impl<T> IndexedCollection<T> {
-    fn get_rc_refcell(&self, index: u32) -> Option<&Item<T>> {
-        self.items.get(usize::try_from(index).unwrap())?.as_ref()
+impl<I: Into<u32>, T> Map<I, T> {
+    pub fn get(&self, id: I) -> Option<&T> {
+        self.items.get(id.into() as usize)?.as_ref()
     }
 
-    fn get_refcell(&self, index: u32) -> Option<&RefCell<T>> {
-        self.get_rc_refcell(index).map(|r| &**r)
+    pub fn get_mut(&mut self, id: I) -> Option<&mut T> {
+        self.items.get_mut(id.into() as usize)?.as_mut()
     }
 
-    pub fn get(&self, index: u32) -> Option<Ref<T>> {
-        self.get_refcell(index).map(RefCell::borrow)
+    pub fn remove(&mut self, id: I) -> Option<T> {
+        self.items.remove(id.into() as usize)
+    }
+}
+
+impl<I: From<u32>, T> Map<I, T> {
+    pub fn push(&mut self, value: T) -> I {
+        let index = (self.items.len() as u32).into();
+        self.items.push(Some(value));
+        index
     }
 
-    pub fn get_mut(&mut self, index: u32) -> Option<RefMut<T>> {
-        self.get_refcell(index).map(RefCell::borrow_mut)
-    }
-
-    pub fn push(&mut self, value: T) -> u32 {
-        match self.deleted.pop() {
-            Some(index) => {
-                self.items[usize::try_from(index).unwrap()] = to_item(value);
-                index
-            }
-            None => {
-                let index = u32::try_from(self.items.len()).unwrap();
-                self.items.push(to_item(value));
-                index
-            }
-        }
-    }
-
-    // Don't allow removals for referenced elements.
-    // Will return a number of references as error (excluding the owner).
-    pub fn try_remove(&mut self, index: u32) -> Option<Result<T, usize>> {
-        let place = self.items.get_mut(usize::try_from(index).unwrap())?;
-        Some(match Rc::try_unwrap(place.take()?) {
-            Ok(value) => {
-                self.deleted.push(index);
-                Ok(RefCell::into_inner(value))
-            }
-            Err(rc) => {
-                let count = Rc::strong_count(&rc) - 1;
-                *place = Some(rc);
-                Err(count)
-            }
-        })
-    }
-
-    pub fn iter(&self) -> IndexedCollectionIter<'_, T> {
+    pub fn iter(&self) -> MapIter<I, T> {
         self.into_iter()
     }
 
-    pub fn iter_mut(&mut self) -> IndexedCollectionIterMut<'_, T> {
+    pub fn iter_mut(&mut self) -> MapIterMut<I, T> {
         self.into_iter()
+    }
+
+    pub fn values(&self) -> MapValuesIter<T> {
+        self.items.iter().into()
+    }
+
+    pub fn values_mut(&mut self) -> MapValuesIterMut<T> {
+        self.items.iter_mut().into()
     }
 }
 
-impl<T: std::fmt::Debug> std::fmt::Debug for IndexedCollection<T> {
+impl<I: From<u32> + Into<u32>, T> std::ops::Index<I> for Map<I, T> {
+    type Output = T;
+
+    fn index(&self, id: I) -> &T {
+        self.items[id.into() as usize]
+            .as_ref()
+            .expect("item at requested index was deleted")
+    }
+}
+
+impl<I: From<u32> + Into<u32>, T> std::ops::IndexMut<I> for Map<I, T> {
+    fn index_mut(&mut self, id: I) -> &mut T {
+        self.items[id.into() as usize]
+            .as_mut()
+            .expect("item at requested index was deleted")
+    }
+}
+
+impl<I: From<u32> + std::fmt::Debug, T: std::fmt::Debug> std::fmt::Debug for Map<I, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_list().entries(self.iter()).finish()
+        f.debug_map().entries(self.iter()).finish()
     }
 }
 
-pub struct IndexedCollectionIter<'a, T> {
-    inner: std::slice::Iter<'a, Option<Item<T>>>,
+pub struct ConvertValue<T, Iter> {
+    inner: Iter,
+    marker: PhantomData<fn(Iter) -> T>,
 }
 
-impl<'a, T> Iterator for IndexedCollectionIter<'a, T> {
-    type Item = Ref<'a, T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.inner.next()?.as_deref()?.borrow())
-    }
-}
-
-impl<'a, T> IntoIterator for &'a IndexedCollection<T> {
-    type Item = Ref<'a, T>;
-    type IntoIter = IndexedCollectionIter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        IndexedCollectionIter {
-            inner: self.items.iter(),
+impl<T, Iter> From<Iter> for ConvertValue<T, Iter> {
+    fn from(iter: Iter) -> Self {
+        Self {
+            inner: iter,
+            marker: PhantomData,
         }
     }
 }
 
-pub struct IndexedCollectionIterMut<'a, T> {
-    inner: std::slice::IterMut<'a, Option<Item<T>>>,
-}
-
-impl<'a, T> Iterator for IndexedCollectionIterMut<'a, T> {
-    type Item = RefMut<'a, T>;
+impl<T, Iter: Iterator> Iterator for ConvertValue<T, Iter>
+where
+    Iter::Item: Into<Option<T>>,
+{
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.inner.next()?.as_deref()?.borrow_mut())
+        self.inner.next()?.into()
     }
 }
 
-impl<'a, T> IntoIterator for &'a mut IndexedCollection<T> {
-    type Item = RefMut<'a, T>;
-    type IntoIter = IndexedCollectionIterMut<'a, T>;
+pub struct ConvertIndex<I, Iter> {
+    inner: std::iter::Enumerate<Iter>,
+    marker: PhantomData<fn() -> I>,
+}
+
+impl<I, Iter: Iterator> From<Iter> for ConvertIndex<I, Iter> {
+    fn from(iter: Iter) -> Self {
+        Self {
+            inner: iter.enumerate(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<I: From<u32>, Iter: Iterator> Iterator for ConvertIndex<I, Iter> {
+    type Item = (I, Iter::Item);
+
+    fn next(&mut self) -> Option<(I, Iter::Item)> {
+        let (index, value) = self.inner.next()?;
+        Some(((index as u32).into(), value))
+    }
+}
+
+pub type ConvertKV<I, T, Iter> = ConvertIndex<I, ConvertValue<T, Iter>>;
+
+impl<I: From<u32>, T, Iter: Iterator> From<Iter> for ConvertKV<I, T, Iter>
+where
+    Iter::Item: Into<Option<T>>,
+{
+    fn from(iter: Iter) -> Self {
+        ConvertIndex::from(ConvertValue::from(iter))
+    }
+}
+
+pub type MapValuesIter<'a, T> = ConvertValue<&'a T, std::slice::Iter<'a, Option<T>>>;
+
+pub type MapIter<'a, I, T> = ConvertKV<I, &'a T, std::slice::Iter<'a, Option<T>>>;
+
+impl<'a, I: From<u32>, T> IntoIterator for &'a Map<I, T> {
+    type Item = (I, &'a T);
+    type IntoIter = MapIter<'a, I, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        IndexedCollectionIterMut {
-            inner: self.items.iter_mut(),
-        }
+        self.items.iter().into()
+    }
+}
+
+pub type MapValuesIterMut<'a, T> = ConvertValue<&'a mut T, std::slice::IterMut<'a, Option<T>>>;
+
+pub type MapIterMut<'a, I, T> = ConvertKV<I, &'a mut T, std::slice::IterMut<'a, Option<T>>>;
+
+impl<'a, I: From<u32>, T> IntoIterator for &'a mut Map<I, T> {
+    type Item = (I, &'a mut T);
+    type IntoIter = MapIterMut<'a, I, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut().into()
+    }
+}
+
+pub type MapIntoIter<I, T> = ConvertKV<I, T, std::vec::IntoIter<Option<T>>>;
+
+impl<I: From<u32>, T> IntoIterator for Map<I, T> {
+    type Item = (I, T);
+    type IntoIter = MapIntoIter<I, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter().into()
     }
 }
 
@@ -159,22 +205,39 @@ pub enum MaybeImported<T> {
 }
 
 #[derive(Debug)]
-pub struct Element {
-    pub offset: Expression,
-    pub init: Vec<Item<Function>>,
+pub struct Local {
+    pub name: Option<String>,
+    pub ty: ValueType,
 }
 
-#[derive(CustomDebug)]
-pub struct Data {
-    pub offset: Expression,
-    #[debug(with = "custom_debug::hexbuf_str")]
-    pub init: RawBlob,
+#[derive(Default, Debug)]
+pub struct FuncBody {
+    pub locals: Map<LocalId, Local>,
+    pub expr: Expression,
+}
+
+impl From<crate::sections::FuncBody> for FuncBody {
+    fn from(body: crate::sections::FuncBody) -> Self {
+        Self {
+            locals: body
+                .locals
+                .into_iter()
+                .flat_map(|locals| {
+                    std::iter::repeat(locals.ty)
+                        .map(|ty| Local { name: None, ty })
+                        .take(locals.repeat as usize)
+                })
+                .collect(),
+            expr: body.expr,
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct Function {
-    pub ty: Item<FuncType>,
-    pub body: MaybeImported<Blob<Func>>,
+    pub ty: TypeId,
+    pub body: MaybeImported<FuncBody>,
+    pub name: Option<String>,
     pub export_name: Option<String>,
 }
 
@@ -190,7 +253,7 @@ pub struct Memory {
     pub ty: MemType,
     pub import_path: Option<ImportPath>,
     pub export_name: Option<String>,
-    pub init: Vec<Data>,
+    pub init: Vec<DataInit>,
 }
 
 #[derive(Debug)]
@@ -198,18 +261,19 @@ pub struct Table {
     pub ty: TableType,
     pub import_path: Option<ImportPath>,
     pub export_name: Option<String>,
-    pub init: Vec<Element>,
+    pub init: Vec<ElementInit>,
 }
 
 #[derive(Debug, Default)]
 pub struct Module {
-    pub types: IndexedCollection<FuncType>,
-    pub functions: IndexedCollection<Function>,
-    pub tables: IndexedCollection<Table>,
-    pub memories: IndexedCollection<Memory>,
-    pub globals: IndexedCollection<Global>,
-    pub start: Option<Item<Function>>,
-    pub custom: Vec<Blob<CustomSection>>,
+    pub name: Option<String>,
+    pub types: Map<TypeId, FuncType>,
+    pub functions: Map<FuncId, Function>,
+    pub tables: Map<TableId, Table>,
+    pub memories: Map<MemId, Memory>,
+    pub globals: Map<GlobalId, Global>,
+    pub start: Option<Blob<FuncId>>,
+    pub custom: Vec<RawCustomSection>,
 }
 
 impl TryFrom<super::module::Module> for Module {
@@ -217,174 +281,167 @@ impl TryFrom<super::module::Module> for Module {
 
     fn try_from(src: super::module::Module) -> Result<Self, DecodeError> {
         let mut dest = Self::default();
+        let mut import_func_count = 0;
         for section in src.sections {
             match section {
-                Section::Custom(custom) => {
-                    dest.custom.push(custom);
-                }
                 Section::Type(types) => {
-                    dest.types = IndexedCollection::from_iter(types.try_into_contents()?);
+                    dest.types = Map::from_iter(types.try_into_contents()?);
                 }
                 Section::Import(imports) => {
                     for import in imports.try_into_contents()? {
-                        macro_rules! import {
-                            ($dest:ident, $expr:expr) => {
-                                dest.$dest.items.push(to_item($expr))
-                            };
-                        }
                         match import.desc {
-                            ImportDesc::Func(type_id) => import!(
-                                functions,
-                                Function {
-                                    ty: Rc::clone(
-                                        dest.types.get_rc_refcell(type_id.index).unwrap()
-                                    ),
+                            ImportDesc::Func(ty) => {
+                                dest.functions.push(Function {
+                                    ty,
                                     body: MaybeImported::Imported(import.path),
+                                    name: None,
                                     export_name: None,
-                                }
-                            ),
-                            ImportDesc::Table(ty) => import!(
-                                tables,
-                                Table {
+                                });
+                            }
+                            ImportDesc::Table(ty) => {
+                                dest.tables.push(Table {
                                     ty,
                                     import_path: Some(import.path),
                                     init: Vec::new(),
                                     export_name: None,
-                                }
-                            ),
-                            ImportDesc::Mem(ty) => import!(
-                                memories,
-                                Memory {
+                                });
+                            }
+                            ImportDesc::Mem(ty) => {
+                                dest.memories.push(Memory {
                                     ty,
                                     import_path: Some(import.path),
                                     init: Vec::new(),
                                     export_name: None,
-                                }
-                            ),
-                            ImportDesc::Global(ty) => import!(
-                                globals,
-                                Global {
+                                });
+                            }
+                            ImportDesc::Global(ty) => {
+                                dest.globals.push(Global {
                                     ty,
                                     init: MaybeImported::Imported(import.path),
                                     export_name: None,
-                                }
-                            ),
+                                });
+                            }
                         }
                     }
+                    import_func_count = dest.functions.items.len();
                 }
                 Section::Function(type_indices) => {
-                    let types = &dest.types;
                     dest.functions
-                        .items
                         .extend(
                             type_indices
                                 .try_into_contents()?
                                 .into_iter()
-                                .map(|type_id| {
-                                    to_item(Function {
-                                        ty: Rc::clone(types.get_rc_refcell(type_id.index).unwrap()),
-                                        body: MaybeImported::Local(Default::default()),
-                                        export_name: None,
-                                    })
+                                .map(|ty| Function {
+                                    ty,
+                                    body: MaybeImported::Local(Default::default()),
+                                    name: None,
+                                    export_name: None,
                                 }),
                         );
                 }
                 Section::Table(table_types) => {
                     dest.tables
-                        .items
-                        .extend(table_types.try_into_contents()?.into_iter().map(|ty| {
-                            to_item(Table {
-                                ty,
-                                import_path: None,
-                                export_name: None,
-                                init: Vec::new(),
-                            })
-                        }));
+                        .extend(
+                            table_types
+                                .try_into_contents()?
+                                .into_iter()
+                                .map(|ty| Table {
+                                    ty,
+                                    import_path: None,
+                                    export_name: None,
+                                    init: Vec::new(),
+                                }),
+                        );
                 }
                 Section::Memory(mem_types) => {
                     dest.memories
-                        .items
-                        .extend(mem_types.try_into_contents()?.into_iter().map(|ty| {
-                            to_item(Memory {
-                                ty,
-                                import_path: None,
-                                export_name: None,
-                                init: Vec::new(),
-                            })
+                        .extend(mem_types.try_into_contents()?.into_iter().map(|ty| Memory {
+                            ty,
+                            import_path: None,
+                            export_name: None,
+                            init: Vec::new(),
                         }));
                 }
                 Section::Global(globals) => {
                     dest.globals
-                        .items
-                        .extend(globals.try_into_contents()?.into_iter().map(|global| {
-                            to_item(Global {
-                                ty: global.ty,
-                                init: MaybeImported::Local(global.init),
-                                export_name: None,
-                            })
-                        }));
+                        .extend(
+                            globals
+                                .try_into_contents()?
+                                .into_iter()
+                                .map(|global| Global {
+                                    ty: global.ty,
+                                    init: MaybeImported::Local(global.init),
+                                    export_name: None,
+                                }),
+                        );
                 }
                 Section::Export(exports) => {
                     for export in exports.try_into_contents()? {
-                        macro_rules! export {
-                            ($dest:ident, $idx:expr) => {
-                                dest.$dest.get_mut($idx.index).unwrap().export_name =
-                                    Some(export.name)
-                            };
-                        }
+                        let export_name = Some(export.name);
                         match export.desc {
-                            ExportDesc::Func(idx) => export!(functions, idx),
-                            ExportDesc::Table(idx) => export!(tables, idx),
-                            ExportDesc::Mem(idx) => export!(memories, idx),
-                            ExportDesc::Global(idx) => export!(globals, idx),
-                        }
+                            ExportDesc::Func(id) => dest.functions[id].export_name = export_name,
+                            ExportDesc::Table(id) => dest.tables[id].export_name = export_name,
+                            ExportDesc::Mem(id) => dest.memories[id].export_name = export_name,
+                            ExportDesc::Global(id) => dest.globals[id].export_name = export_name,
+                        };
                     }
                 }
-                Section::Start(func_id) => {
-                    dest.start = Some(Rc::clone(
-                        dest.functions
-                            .get_rc_refcell(func_id.try_into_contents()?.index)
-                            .unwrap(),
-                    ));
+                Section::Start(func) => {
+                    dest.start = Some(func);
                 }
                 Section::Element(elements) => {
-                    let functions = &dest.functions;
                     for elem in elements.try_into_contents()? {
-                        dest.tables
-                            .get_mut(elem.table.index)
-                            .unwrap()
-                            .init
-                            .push(Element {
-                                offset: elem.offset,
-                                init: elem
-                                    .init
-                                    .into_iter()
-                                    .map(|func_id| {
-                                        Rc::clone(functions.get_rc_refcell(func_id.index).unwrap())
-                                    })
-                                    .collect(),
-                            })
+                        dest.tables[elem.table].init.push(elem.init);
                     }
                 }
                 Section::Code(code) => {
-                    for (code, mut func) in code
+                    for (code, func) in code
                         .try_into_contents()?
                         .into_iter()
-                        .zip(&mut dest.functions)
+                        .zip(dest.functions.values_mut().skip(import_func_count))
                     {
-                        func.body = MaybeImported::Local(code);
+                        func.body = MaybeImported::Local(code.try_into_contents()?.into());
                     }
                 }
                 Section::Data(data) => {
                     for data in data.try_into_contents()? {
-                        dest.memories
-                            .get_mut(data.memory.index)
-                            .unwrap()
-                            .init
-                            .push(Data {
-                                offset: data.offset,
-                                init: data.init,
-                            })
+                        dest.memories[data.memory].init.push(data.init);
+                    }
+                }
+                Section::Custom(custom) => {
+                    // TODO: technically custom sections are not supposed to error out.
+                    // Decide what should we do here instead.
+                    match custom.try_into_contents()? {
+                        CustomSection::Name(names) => {
+                            for name in names.try_into_contents()? {
+                                match name {
+                                    NameSubSection::Module(name) => {
+                                        dest.name = Some(name.try_into_contents()?);
+                                    }
+                                    NameSubSection::Func(names) => {
+                                        for assoc in names.try_into_contents()?.items {
+                                            dest.functions[assoc.index].name = Some(assoc.value);
+                                        }
+                                    }
+                                    NameSubSection::Local(names) => {
+                                        for func_assoc in names.try_into_contents()?.items {
+                                            let locals = match &mut dest.functions[func_assoc.index].body {
+                                                MaybeImported::Local(body) => &mut body.locals,
+                                                // TODO: either ignore this or turn into Result error.
+                                                _ => panic!("Tried to set local names of an imported function."),
+                                            };
+                                            for local_assoc in func_assoc.value.items {
+                                                locals[local_assoc.index].name =
+                                                    Some(local_assoc.value);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        CustomSection::Other(raw) => {
+                            dest.custom.push(raw);
+                        }
                     }
                 }
             }
