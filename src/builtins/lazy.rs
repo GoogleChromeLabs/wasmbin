@@ -1,12 +1,19 @@
 use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
 use arbitrary::Arbitrary;
+use custom_debug::CustomDebug;
 use once_cell::unsync::OnceCell;
 use std::hash::Hash;
 
-#[derive(Debug, Clone)]
+#[derive(CustomDebug, Clone)]
 enum LazyStatus<T> {
-    FromInput { raw: Vec<u8>, parsed: OnceCell<T> },
-    Output { value: T },
+    FromInput {
+        #[debug(with = "custom_debug::hexbuf_str")]
+        raw: Vec<u8>,
+        parsed: OnceCell<T>,
+    },
+    Output {
+        value: T,
+    },
 }
 
 #[derive(Clone)]
