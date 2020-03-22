@@ -65,18 +65,20 @@ impl WasmbinDecode for Vec<NameSubSection> {
     }
 }
 
+#[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+pub struct RawCustomSection {
+    name: String,
+
+    #[debug(with = "custom_debug::hexbuf_str")]
+    data: Vec<u8>,
+}
+
 macro_rules! define_custom_sections {
     ($($name:ident($ty:ty) = $disc:literal,)*) => {
-        #[derive(CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+        #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
         pub enum CustomSection {
             $($name(Lazy<$ty>),)*
-
-            Other {
-                name: String,
-
-                #[debug(with = "custom_debug::hexbuf_str")]
-                data: Vec<u8>,
-            },
+            Other(RawCustomSection),
         }
 
         impl WasmbinEncode for CustomSection {
@@ -86,23 +88,17 @@ macro_rules! define_custom_sections {
                         $disc.encode(w)?;
                         data.encode(w)
                     })*
-                    CustomSection::Other { name, data } => {
-                        name.encode(w)?;
-                        data.encode(w)
-                    }
+                    CustomSection::Other(raw) => raw.encode(w)
                 }
             }
         }
 
         impl WasmbinDecode for CustomSection {
             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                let name = String::decode(r)?;
-                Ok(match name.as_str() {
-                    $($disc => CustomSection::$name(Lazy::decode(r)?))*,
-                    _ => CustomSection::Other {
-                        name,
-                        data: Vec::decode(r)?,
-                    },
+                let raw = RawCustomSection::decode(r)?;
+                Ok(match raw.name.as_str() {
+                    $($disc => CustomSection::$name(Lazy::from_raw(raw.data)),)*
+                    _ => CustomSection::Other(raw)
                 })
             }
         }

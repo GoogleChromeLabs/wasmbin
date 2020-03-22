@@ -22,6 +22,15 @@ pub struct Lazy<T> {
 }
 
 impl<T> Lazy<T> {
+    pub fn from_raw(raw: Vec<u8>) -> Self {
+        Lazy {
+            status: LazyStatus::FromInput {
+                raw,
+                parsed: OnceCell::new(),
+            },
+        }
+    }
+
     pub fn try_as_raw(&self) -> Result<&[u8], &T> {
         match &self.status {
             LazyStatus::FromInput { raw, .. } => Ok(raw),
@@ -55,12 +64,7 @@ impl<T: WasmbinEncode> WasmbinEncode for Lazy<T> {
 
 impl<T: WasmbinDecode> WasmbinDecode for Lazy<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Ok(Self {
-            status: LazyStatus::FromInput {
-                raw: Vec::decode(r)?,
-                parsed: OnceCell::new(),
-            },
-        })
+        Vec::decode(r).map(Self::from_raw)
     }
 }
 
