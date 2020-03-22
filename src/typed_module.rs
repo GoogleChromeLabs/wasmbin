@@ -233,11 +233,11 @@ impl TryFrom<super::module::Module> for Module {
                             };
                         }
                         match import.desc {
-                            ImportDesc::Func(type_idx) => import!(
+                            ImportDesc::Func(type_id) => import!(
                                 functions,
                                 Function {
                                     ty: Rc::clone(
-                                        dest.types.get_rc_refcell(type_idx.index).unwrap()
+                                        dest.types.get_rc_refcell(type_id.index).unwrap()
                                     ),
                                     body: MaybeImported::Imported(import.path),
                                     export_name: None,
@@ -280,11 +280,9 @@ impl TryFrom<super::module::Module> for Module {
                             type_indices
                                 .try_into_contents()?
                                 .into_iter()
-                                .map(|type_idx| {
+                                .map(|type_id| {
                                     to_item(Function {
-                                        ty: Rc::clone(
-                                            types.get_rc_refcell(type_idx.index).unwrap(),
-                                        ),
+                                        ty: Rc::clone(types.get_rc_refcell(type_id.index).unwrap()),
                                         body: MaybeImported::Local(Default::default()),
                                         export_name: None,
                                     })
@@ -342,10 +340,10 @@ impl TryFrom<super::module::Module> for Module {
                         }
                     }
                 }
-                Section::Start(func_idx) => {
+                Section::Start(func_id) => {
                     dest.start = Some(Rc::clone(
                         dest.functions
-                            .get_rc_refcell(func_idx.try_into_contents()?.index)
+                            .get_rc_refcell(func_id.try_into_contents()?.index)
                             .unwrap(),
                     ));
                 }
@@ -361,8 +359,8 @@ impl TryFrom<super::module::Module> for Module {
                                 init: elem
                                     .init
                                     .into_iter()
-                                    .map(|func_idx| {
-                                        Rc::clone(functions.get_rc_refcell(func_idx.index).unwrap())
+                                    .map(|func_id| {
+                                        Rc::clone(functions.get_rc_refcell(func_id.index).unwrap())
                                     })
                                     .collect(),
                             })

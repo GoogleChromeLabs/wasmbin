@@ -1,7 +1,7 @@
 use crate::{Wasmbin, WasmbinCountable};
 use arbitrary::Arbitrary;
 
-macro_rules! newtype_idx {
+macro_rules! newtype_id {
     ($name:ident) => {
         #[derive(PartialEq, Eq, Clone, Copy, Wasmbin, WasmbinCountable, Arbitrary, Hash)]
         #[repr(transparent)]
@@ -9,12 +9,24 @@ macro_rules! newtype_idx {
             pub index: u32,
         }
 
+        impl From<u32> for $name {
+            fn from(index: u32) -> Self {
+                Self { index }
+            }
+        }
+
+        impl From<$name> for u32 {
+            fn from(id: $name) -> u32 {
+                id.index
+            }
+        }
+
         impl std::fmt::Debug for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(
                     f,
                     "{}#{}",
-                    &stringify!($name)[..stringify!($name).len() - "Idx".len()],
+                    &stringify!($name)[..stringify!($name).len() - "Id".len()],
                     self.index
                 )
             }
@@ -22,10 +34,10 @@ macro_rules! newtype_idx {
     };
 }
 
-newtype_idx!(TypeIdx);
-newtype_idx!(FuncIdx);
-newtype_idx!(TableIdx);
-newtype_idx!(MemIdx);
-newtype_idx!(GlobalIdx);
-newtype_idx!(LocalIdx);
-newtype_idx!(LabelIdx);
+newtype_id!(TypeId);
+newtype_id!(FuncId);
+newtype_id!(TableId);
+newtype_id!(MemId);
+newtype_id!(GlobalId);
+newtype_id!(LocalId);
+newtype_id!(LabelId);

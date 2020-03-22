@@ -1,6 +1,6 @@
 use crate::builtins::blob::{Blob, RawBlob};
 use crate::builtins::lazy::Lazy;
-use crate::indices::{FuncIdx, GlobalIdx, LocalIdx, MemIdx, TableIdx, TypeIdx};
+use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
 use crate::{
@@ -33,8 +33,8 @@ pub struct NameMap<I, V> {
 #[repr(u8)]
 pub enum NameSubSection {
     Module(Blob<String>) = 0,
-    Func(Blob<NameMap<FuncIdx, String>>) = 1,
-    Local(Blob<NameMap<FuncIdx, NameMap<LocalIdx, String>>>) = 2,
+    Func(Blob<NameMap<FuncId, String>>) = 1,
+    Local(Blob<NameMap<FuncId, NameMap<LocalId, String>>>) = 2,
 }
 
 impl WasmbinEncode for [NameSubSection] {
@@ -117,7 +117,7 @@ define_custom_sections! {
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 #[repr(u8)]
 pub enum ImportDesc {
-    Func(TypeIdx) = 0x00,
+    Func(TypeId) = 0x00,
     Table(TableType) = 0x01,
     Mem(MemType) = 0x02,
     Global(GlobalType) = 0x03,
@@ -145,10 +145,10 @@ pub struct Global {
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 #[repr(u8)]
 pub enum ExportDesc {
-    Func(FuncIdx) = 0x00,
-    Table(TableIdx) = 0x01,
-    Mem(MemIdx) = 0x02,
-    Global(GlobalIdx) = 0x03,
+    Func(FuncId) = 0x00,
+    Table(TableId) = 0x01,
+    Mem(MemId) = 0x02,
+    Global(GlobalId) = 0x03,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
@@ -159,9 +159,9 @@ pub struct Export {
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct Element {
-    pub table: TableIdx,
+    pub table: TableId,
     pub offset: Expression,
-    pub init: Vec<FuncIdx>,
+    pub init: Vec<FuncId>,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
@@ -178,7 +178,7 @@ pub struct Func {
 
 #[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct Data {
-    pub memory: MemIdx,
+    pub memory: MemId,
     pub offset: Expression,
     #[debug(with = "custom_debug::hexbuf_str")]
     pub init: RawBlob,
@@ -280,12 +280,12 @@ define_sections! {
     Custom(super::CustomSection) = 0,
     Type(Vec<super::FuncType>) = 1,
     Import(Vec<super::Import>) = 2,
-    Function(Vec<super::TypeIdx>) = 3,
+    Function(Vec<super::TypeId>) = 3,
     Table(Vec<super::TableType>) = 4,
     Memory(Vec<super::MemType>) = 5,
     Global(Vec<super::Global>) = 6,
     Export(Vec<super::Export>) = 7,
-    Start(super::FuncIdx) = 8,
+    Start(super::FuncId) = 8,
     Element(Vec<super::Element>) = 9,
     Code(Vec<super::Blob<super::Func>>) = 10,
     Data(Vec<super::Data>) = 11,
