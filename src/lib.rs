@@ -6,10 +6,8 @@ use thiserror::Error;
 use wasmbin_derive::{wasmbin_discriminants, Wasmbin, WasmbinCountable};
 
 pub mod builtins;
-
 pub mod indices;
 pub mod instructions;
-pub mod lazy_mut;
 pub mod module;
 pub mod sections;
 pub mod typed_module;
