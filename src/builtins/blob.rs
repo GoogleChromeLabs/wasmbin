@@ -143,3 +143,15 @@ impl<T: WasmbinDecode> WasmbinDecode for Blob<T> {
 }
 
 impl<T: WasmbinDecode + WasmbinCountable> WasmbinCountable for Blob<T> {}
+
+impl<T: WasmbinDecode> From<T> for Blob<T> {
+    fn from(value: T) -> Self {
+        Blob {
+            contents: if_lazy!(if lazy {
+                LazyMut::new_from_output(value)
+            } else {
+                value
+            }),
+        }
+    }
+}

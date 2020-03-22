@@ -88,22 +88,111 @@ pub struct Data {
     pub init: RawBlob,
 }
 
-#[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
-#[repr(u8)]
-pub enum Section {
-    Custom(Blob<CustomSection>) = 0,
-    Type(Blob<Vec<FuncType>>) = 1,
-    Import(Blob<Vec<Import>>) = 2,
-    Function(Blob<Vec<TypeIdx>>) = 3,
-    Table(Blob<Vec<TableType>>) = 4,
-    Memory(Blob<Vec<MemType>>) = 5,
-    Global(Blob<Vec<Global>>) = 6,
-    Export(Blob<Vec<Export>>) = 7,
-    Start(Blob<FuncIdx>) = 8,
-    Element(Blob<Vec<Element>>) = 9,
-    Code(Blob<Vec<Blob<Func>>>) = 10,
-    Data(Blob<Vec<Data>>) = 11,
+pub trait Payload: WasmbinEncode + WasmbinDecode + Into<Section> {
+    const KIND: Kind;
+
+    fn try_from_ref(section: &Section) -> Option<&Blob<Self>>;
+    fn try_from_mut(section: &mut Section) -> Option<&mut Blob<Self>>;
+    fn try_from(section: Section) -> Result<Blob<Self>, Section>;
+}
+
+pub trait StdPayload: Payload {}
+
+macro_rules! define_sections {
+    ($($name:ident($ty:ty) = $disc:literal,)*) => {
+        pub mod payload {
+            $(pub type $name = $ty;)*
+        }
+
+        #[wasmbin_discriminants]
+        #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+        #[repr(u8)]
+        pub enum Section {
+            $($name(Blob<payload::$name>) = $disc,)*
+        }
+
+        #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
+        #[repr(u8)]
+        pub enum Kind {
+            $($name = $disc,)*
+        }
+
+        $(
+            impl From<Blob<payload::$name>> for Section {
+                fn from(value: Blob<payload::$name>) -> Self {
+                    Section::$name(value)
+                }
+            }
+
+            impl From<payload::$name> for Section {
+                fn from(value: payload::$name) -> Self {
+                    Section::$name(Blob::from(value))
+                }
+            }
+
+            impl Payload for payload::$name {
+                const KIND: Kind = Kind::$name;
+
+                fn try_from_ref(section: &Section) -> Option<&Blob<Self>> {
+                    match section {
+                        Section::$name(res) => Some(res),
+                        _ => None,
+                    }
+                }
+
+                fn try_from_mut(section: &mut Section) -> Option<&mut Blob<Self>> {
+                    match section {
+                        Section::$name(res) => Some(res),
+                        _ => None,
+                    }
+                }
+
+                fn try_from(section: Section) -> Result<Blob<Self>, Section> {
+                    match section {
+                        Section::$name(res) => Ok(res),
+                        _ => Err(section),
+                    }
+                }
+            }
+        )*
+
+        impl Section {
+            pub fn kind(&self) -> Kind {
+                match self {
+                    $(Section::$name(_) => Kind::$name,)*
+                }
+            }
+
+            pub fn try_as<T: Payload>(&self) -> Option<&Blob<T>> {
+                T::try_from_ref(self)
+            }
+
+            pub fn try_as_mut<T: Payload>(&mut self) -> Option<&mut Blob<T>> {
+                T::try_from_mut(self)
+            }
+        }
+
+        define_sections!(@std $($name)*);
+    };
+
+    (@std $ignore_custom:ident $($name:ident)*) => {
+        $(impl StdPayload for payload::$name {})*
+    };
+}
+
+define_sections! {
+    Custom(super::CustomSection) = 0,
+    Type(Vec<super::FuncType>) = 1,
+    Import(Vec<super::Import>) = 2,
+    Function(Vec<super::TypeIdx>) = 3,
+    Table(Vec<super::TableType>) = 4,
+    Memory(Vec<super::MemType>) = 5,
+    Global(Vec<super::Global>) = 6,
+    Export(Vec<super::Export>) = 7,
+    Start(super::FuncIdx) = 8,
+    Element(Vec<super::Element>) = 9,
+    Code(Vec<super::Blob<super::Func>>) = 10,
+    Data(Vec<super::Data>) = 11,
 }
 
 impl WasmbinEncode for [Section] {

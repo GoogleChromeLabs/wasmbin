@@ -1,6 +1,8 @@
-use crate::sections::Section;
+use crate::builtins::blob::Blob;
+use crate::sections::{Section, StdPayload};
 use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 use arbitrary::Arbitrary;
+use std::cmp::Ordering;
 
 const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00];
 
@@ -28,4 +30,43 @@ impl WasmbinDecode for MagicAndVersion {
 pub struct Module {
     magic_and_version: MagicAndVersion,
     pub sections: Vec<Section>,
+}
+
+impl Module {
+    pub fn find_std_section<T: StdPayload>(&self) -> Option<&Blob<T>> {
+        self.sections.iter().find_map(|section| section.try_as())
+    }
+
+    pub fn find_std_section_mut<T: StdPayload>(&mut self) -> Option<&mut Blob<T>> {
+        self.sections
+            .iter_mut()
+            .find_map(|section| section.try_as_mut())
+    }
+
+    pub fn find_or_insert_std_section<T: StdPayload>(
+        &mut self,
+        insert_callback: impl FnOnce() -> T,
+    ) -> &mut Blob<T> {
+        let mut index = self.sections.len();
+        let mut insert = true;
+        for (i, section) in self.sections.iter_mut().enumerate() {
+            match section.kind().cmp(&T::KIND) {
+                Ordering::Less => continue,
+                Ordering::Equal => {
+                    // We can't just `return` here due to a bug in rustc:
+                    // https://github.com/rust-lang/rust/issues/70255
+                    insert = false;
+                }
+                Ordering::Greater => {}
+            }
+            index = i;
+            break;
+        }
+        if insert {
+            self.sections.insert(index, insert_callback().into());
+        }
+        unsafe { self.sections.get_unchecked_mut(index) }
+            .try_as_mut()
+            .unwrap_or_else(|| unsafe { std::hint::unreachable_unchecked() })
+    }
 }
