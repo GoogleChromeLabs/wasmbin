@@ -4,26 +4,54 @@ use quote::{quote, ToTokens};
 use std::borrow::Cow;
 use synstructure::{decl_derive, Structure, VariantInfo};
 
-fn discriminant_attr(v: &VariantInfo) -> Option<syn::Expr> {
-    v.ast().attrs.iter().find_map(|attr| match attr {
-        syn::Attribute {
-            style: syn::AttrStyle::Outer,
-            path,
-            ..
-        } if path.is_ident("wasmbin") => {
-            syn::custom_keyword!(discriminant);
+macro_rules! syn_throw {
+    ($err:expr) => {
+        return syn::Error::to_compile_error(&$err)
+    };
+}
 
-            Some(
-                attr.parse_args_with(|parser: syn::parse::ParseStream| {
-                    parser.parse::<discriminant>()?;
-                    parser.parse::<syn::Token![=]>()?;
-                    parser.parse()
-                })
-                .unwrap(),
-            )
+macro_rules! syn_try {
+    ($expr:expr) => {
+        match $expr {
+            Ok(expr) => expr,
+            Err(err) => syn_throw!(err),
         }
-        _ => None,
-    })
+    };
+}
+
+fn discriminant<'v>(v: &VariantInfo<'v>) -> syn::Result<Option<Cow<'v, syn::Expr>>> {
+    v.ast()
+        .discriminant
+        .iter()
+        .map(|(_, discriminant)| Ok(Cow::Borrowed(discriminant)))
+        .chain(v.ast().attrs.iter().filter_map(|attr| match attr {
+            syn::Attribute {
+                style: syn::AttrStyle::Outer,
+                path,
+                ..
+            } if path.is_ident("wasmbin") => {
+                syn::custom_keyword!(discriminant);
+
+                Some(
+                    attr.parse_args_with(|parser: syn::parse::ParseStream| {
+                        parser.parse::<discriminant>()?;
+                        parser.parse::<syn::Token![=]>()?;
+                        parser.parse()
+                    })
+                    .map(Cow::Owned),
+                )
+            }
+            _ => None,
+        }))
+        .try_fold(None, |prev, discriminant| {
+            let discriminant = discriminant?;
+            if let Some(prev) = prev {
+                let mut err = syn::Error::new_spanned(discriminant, "#[derive(Wasmbin)]: duplicate discriminant");
+                err.combine(syn::Error::new_spanned(prev, "#[derive(Wasmbin)]: previous discriminant here"));
+                return Err(err);
+            }
+            Ok(Some(discriminant))
+        })
 }
 
 fn gen_encode_discriminant(discriminant: &syn::Expr) -> proc_macro2::TokenStream {
@@ -52,12 +80,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
             let mut decode_other = quote!({ return Ok(None) });
 
             for v in s.variants() {
-                let discriminant = v
-                    .ast()
-                    .discriminant
-                    .as_ref()
-                    .map(|(_, discriminant)| Cow::Borrowed(discriminant))
-                    .or_else(|| discriminant_attr(v).map(Cow::Owned));
+                let discriminant = syn_try!(discriminant(v));
 
                 match discriminant {
                     Some(discriminant) => {
@@ -71,11 +94,9 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     }
                     None => {
                         let fields = v.ast().fields;
-                        assert_eq!(
-                            fields.len(),
-                            1,
-                            "Single field is required for catch-all discriminants."
-                        );
+                        if fields.len() != 1 {
+                            syn_throw!(syn::Error::new_spanned(fields, "Catch-all variants without discriminant must have a single field."));
+                        }
                         let field = fields.iter().next().unwrap();
                         let construct = match &field.ident {
                             Some(ident) => quote!({ #ident: res }),
@@ -121,7 +142,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
             assert_eq!(variants.len(), 1);
             let v = &variants[0];
             let decode = gen_decode(v);
-            match discriminant_attr(v) {
+            match syn_try!(discriminant(v)) {
                 Some(discriminant) => (
                     gen_encode_discriminant(&discriminant),
                     quote! {
