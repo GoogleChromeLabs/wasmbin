@@ -1,23 +1,37 @@
 extern crate proc_macro;
 
 use quote::{quote, ToTokens};
-use synstructure::{decl_derive, Structure};
+use std::borrow::Cow;
+use synstructure::{decl_derive, Structure, VariantInfo};
 
-fn discriminant_attr(v: &synstructure::VariantInfo) -> Option<syn::Lit> {
+fn discriminant_attr(v: &VariantInfo) -> Option<syn::Expr> {
     v.ast().attrs.iter().find_map(|attr| match attr {
         syn::Attribute {
             style: syn::AttrStyle::Outer,
             path,
             ..
         } if path.is_ident("wasmbin") => {
-            let args = attr
-                .parse_args::<syn::MetaNameValue>()
-                .expect("Wrong format of wasmbin attr");
-            assert!(args.path.is_ident("discriminant"));
-            Some(args.lit)
+            syn::custom_keyword!(discriminant);
+
+            Some(
+                attr.parse_args_with(|parser: syn::parse::ParseStream| {
+                    parser.parse::<discriminant>()?;
+                    parser.parse::<syn::Token![=]>()?;
+                    parser.parse()
+                })
+                .unwrap(),
+            )
         }
         _ => None,
     })
+}
+
+fn gen_encode_discriminant(discriminant: &syn::Expr) -> proc_macro2::TokenStream {
+    quote!(<u8 as WasmbinEncode>::encode(&#discriminant, w)?)
+}
+
+fn gen_decode(v: &VariantInfo) -> proc_macro2::TokenStream {
+    v.construct(|_, _| quote!(WasmbinDecode::decode(r)?))
 }
 
 fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
@@ -32,45 +46,57 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                 panic!("Wasmbin enums must use #[repr(u8)].");
             }
 
+            let mut encode_discriminant = quote!();
+
             let mut decoders = quote!();
             let mut decode_other = quote!({ return Ok(None) });
 
-            let encode_discriminant = s.each_variant(|v| {
-                v.ast()
+            for v in s.variants() {
+                let discriminant = v
+                    .ast()
                     .discriminant
                     .as_ref()
-                    .map(|(_, discriminant)| quote!(#discriminant))
-                    .or_else(|| discriminant_attr(v).map(|lit| quote!(#lit)))
-                    .map_or_else(
-                        || {
-                            let fields = v.ast().fields;
-                            assert_eq!(fields.len(), 1, "Single field is required for catch-all discriminants.");
-                            let field = fields.iter().next().unwrap();
-                            let construct = match &field.ident {
-                                Some(ident) => quote!({ #ident: res }),
-                                None => quote!((res))
-                            };
-                            let variant_name = v.ast().ident;
-                            decode_other = quote! {
-                                if let Some(res) = WasmbinDecodeWithDiscriminant::maybe_decode_with_discriminant(discriminant, r)? {
-                                    Self::#variant_name #construct
-                                } else #decode_other
-                            };
-                            quote!(Ok(()))
-                        },
-                        |discriminant| {
-                            let construct = v.construct(|_, _| quote!(WasmbinDecode::decode(r)?));
-                            (quote!(#discriminant => #construct,)).to_tokens(&mut decoders);
-                            quote!(<u8 as WasmbinEncode>::encode(&#discriminant, w))
-                        },
-                    )
-            });
+                    .map(|(_, discriminant)| Cow::Borrowed(discriminant))
+                    .or_else(|| discriminant_attr(v).map(Cow::Owned));
+
+                match discriminant {
+                    Some(discriminant) => {
+                        let pat = v.pat();
+
+                        let encode = gen_encode_discriminant(&discriminant);
+                        (quote!(#pat => #encode,)).to_tokens(&mut encode_discriminant);
+
+                        let construct = gen_decode(v);
+                        (quote!(#discriminant => #construct,)).to_tokens(&mut decoders);
+                    }
+                    None => {
+                        let fields = v.ast().fields;
+                        assert_eq!(
+                            fields.len(),
+                            1,
+                            "Single field is required for catch-all discriminants."
+                        );
+                        let field = fields.iter().next().unwrap();
+                        let construct = match &field.ident {
+                            Some(ident) => quote!({ #ident: res }),
+                            None => quote!((res)),
+                        };
+                        let variant_name = v.ast().ident;
+                        decode_other = quote! {
+                            if let Some(res) = WasmbinDecodeWithDiscriminant::maybe_decode_with_discriminant(discriminant, r)? {
+                                Self::#variant_name #construct
+                            } else #decode_other
+                        };
+                    }
+                }
+            }
 
             (
                 quote! {
                     match *self {
                         #encode_discriminant
-                    }?;
+                        _ => {}
+                    }
                 },
                 quote! {
                     gen impl WasmbinDecodeWithDiscriminant for @Self {
@@ -94,17 +120,15 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
             let variants = s.variants();
             assert_eq!(variants.len(), 1);
             let v = &variants[0];
-            let construct = v.construct(|_, _| quote!(WasmbinDecode::decode(r)?));
+            let decode = gen_decode(v);
             match discriminant_attr(v) {
                 Some(discriminant) => (
-                    quote! {
-                        <u8 as WasmbinEncode>::encode(&#discriminant, w)?;
-                    },
+                    gen_encode_discriminant(&discriminant),
                     quote! {
                         gen impl WasmbinDecodeWithDiscriminant for @Self {
                             fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
                                 Ok(match discriminant {
-                                    #discriminant => Some(#construct),
+                                    #discriminant => Some(#decode),
                                     _ => None
                                 })
                             }
@@ -122,7 +146,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     quote! {
                         gen impl WasmbinDecode for @Self {
                             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                                Ok(#construct)
+                                Ok(#decode)
                             }
                         }
                     },
@@ -142,7 +166,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
 
         gen impl WasmbinEncode for @Self {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-                #encode_discriminant
+                #encode_discriminant;
                 match *self { #encode_body }
                 Ok(())
             }
