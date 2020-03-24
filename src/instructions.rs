@@ -1,40 +1,87 @@
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
 use crate::io::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 use crate::types::BlockType;
-use crate::visit::WasmbinVisit;
+use crate::visit::{VisitError, WasmbinVisit};
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
+
+const OP_CODE_BLOCK_START: u8 = 0x02;
+const OP_CODE_END: u8 = 0x0B;
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin)]
 #[repr(u8)]
 enum SeqInstructionRepr {
+    BlockStart = OP_CODE_BLOCK_START,
     Instruction(Instruction),
-    End = 0x0B,
+    End = OP_CODE_END,
 }
 
 impl WasmbinEncode for [Instruction] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        for instr in self {
-            instr.encode(w)?;
-        }
-        SeqInstructionRepr::End.encode(w)
-    }
-}
-
-impl WasmbinDecode for Vec<Instruction> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut res = Vec::new();
+        let mut block_stack = Vec::new();
+        let mut current_iter = self.iter();
         loop {
-            match SeqInstructionRepr::decode(r)? {
-                SeqInstructionRepr::Instruction(instr) => res.push(instr),
-                SeqInstructionRepr::End => return Ok(res),
+            while let Some(instr) = current_iter.next() {
+                match instr {
+                    Instruction::Block(body) => {
+                        SeqInstructionRepr::BlockStart.encode(w)?;
+                        body.return_type.encode(w)?;
+                        block_stack.push(std::mem::replace(&mut current_iter, body.expr.iter()));
+                    }
+                    _ => {
+                        instr.encode(w)?;
+                    }
+                }
+            }
+            SeqInstructionRepr::End.encode(w)?;
+            match block_stack.pop() {
+                Some(iter) => {
+                    current_iter = iter;
+                }
+                None => {
+                    return Ok(());
+                }
             }
         }
     }
 }
 
-#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+impl WasmbinDecode for Vec<Instruction> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        let mut block_stack = Vec::new();
+        let mut current_res = BlockBody {
+            return_type: BlockType::Empty,
+            expr: Expression::default(),
+        };
+        loop {
+            match SeqInstructionRepr::decode(r)? {
+                SeqInstructionRepr::BlockStart => {
+                    let return_type = BlockType::decode(r)?;
+                    block_stack.push(std::mem::replace(
+                        &mut current_res,
+                        BlockBody {
+                            return_type,
+                            expr: Expression::default(),
+                        },
+                    ));
+                }
+                SeqInstructionRepr::Instruction(instr) => {
+                    current_res.expr.push(instr);
+                }
+                SeqInstructionRepr::End => match block_stack.pop() {
+                    Some(block) => {
+                        let block_body = std::mem::replace(&mut current_res, block);
+                        current_res.expr.push(Instruction::Block(block_body));
+                    }
+                    None => return Ok(std::mem::take(&mut current_res.expr.0)),
+                },
+            }
+        }
+    }
+}
+
+#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
 pub struct Expression(Vec<Instruction>);
 
 impl std::ops::Deref for Expression {
@@ -48,6 +95,86 @@ impl std::ops::Deref for Expression {
 impl std::ops::DerefMut for Expression {
     fn deref_mut(&mut self) -> &mut Vec<Instruction> {
         &mut self.0
+    }
+}
+
+impl Drop for Expression {
+    fn drop(&mut self) {
+        let mut expr_list = Vec::new();
+        let mut cur_expr = std::mem::take(&mut self.0);
+
+        loop {
+            for instr in cur_expr.into_iter() {
+                if let Instruction::Block(mut block) = instr {
+                    expr_list.push(std::mem::take(&mut block.expr.0));
+                }
+            }
+            cur_expr = match expr_list.pop() {
+                Some(expr) => expr,
+                None => break,
+            }
+        }
+    }
+}
+
+impl WasmbinVisit for Expression {
+    fn visit_children<'a, T: 'static, E, F: FnMut(&'a T) -> Result<(), E>>(
+        &'a self,
+        f: &mut F,
+    ) -> Result<(), VisitError<E>> {
+        let mut block_stack = Vec::new();
+        let mut current_iter = self.iter();
+        loop {
+            while let Some(instr) = current_iter.next() {
+                if let Some(v) = std::any::Any::downcast_ref(instr) {
+                    f(v).map_err(VisitError::Custom)?;
+                }
+                match instr {
+                    Instruction::Block(body) => {
+                        block_stack.push(std::mem::replace(&mut current_iter, body.expr.iter()));
+                    }
+                    _ => instr.visit_children(f)?,
+                }
+            }
+            match block_stack.pop() {
+                Some(iter) => {
+                    current_iter = iter;
+                }
+                None => {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    fn visit_children_mut<T: 'static, E, F: FnMut(&mut T) -> Result<(), E>>(
+        &mut self,
+        f: &mut F,
+    ) -> Result<(), VisitError<E>> {
+        let mut block_stack = Vec::new();
+        let mut current_iter = self.iter_mut();
+        loop {
+            while let Some(instr) = current_iter.next() {
+                if let Some(v) = std::any::Any::downcast_mut(instr) {
+                    f(v).map_err(VisitError::Custom)?;
+                }
+                match instr {
+                    Instruction::Block(body) => {
+                        block_stack
+                            .push(std::mem::replace(&mut current_iter, body.expr.iter_mut()));
+                    }
+                    _ => instr.visit_children_mut(f)?,
+                }
+            }
+            match block_stack.pop() {
+                Some(iter) => {
+                    current_iter = iter;
+                }
+                None => {
+                    return Ok(());
+                }
+            }
+        }
     }
 }
 
@@ -68,8 +195,9 @@ pub struct IfElse {
 #[derive(Wasmbin)]
 #[repr(u8)]
 enum IfElseInstructionRepr {
-    Instruction(SeqInstructionRepr),
+    Instruction(Instruction),
     Else = 0x05,
+    End = OP_CODE_END,
 }
 
 impl WasmbinEncode for IfElse {
@@ -84,7 +212,7 @@ impl WasmbinEncode for IfElse {
                 instr.encode(w)?;
             }
         }
-        SeqInstructionRepr::End.encode(w)
+        IfElseInstructionRepr::End.encode(w)
     }
 }
 
@@ -97,14 +225,14 @@ impl WasmbinDecode for IfElse {
         };
         loop {
             match IfElseInstructionRepr::decode(r)? {
-                IfElseInstructionRepr::Instruction(SeqInstructionRepr::Instruction(instr)) => {
+                IfElseInstructionRepr::Instruction(instr) => {
                     res.then.push(instr);
-                }
-                IfElseInstructionRepr::Instruction(SeqInstructionRepr::End) => {
-                    break;
                 }
                 IfElseInstructionRepr::Else => {
                     res.otherwise = Expression::decode(r)?;
+                    break;
+                }
+                IfElseInstructionRepr::End => {
                     break;
                 }
             }
@@ -160,7 +288,7 @@ impl std::hash::Hash for FloatConst<f64> {
 pub enum Instruction {
     Unreachable = 0x00,
     Nop = 0x01,
-    Block(BlockBody) = 0x02,
+    Block(BlockBody) = OP_CODE_BLOCK_START,
     Loop(BlockBody) = 0x03,
     IfElse(IfElse) = 0x04,
     Br(LabelId) = 0x0C,

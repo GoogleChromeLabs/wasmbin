@@ -28,6 +28,5 @@ criterion = "0.3.1"
 name = "bench"
 harness = false
 
-[[bench]]
-name = "depth"
-harness = false
+[profile.bench]
+debug = true
