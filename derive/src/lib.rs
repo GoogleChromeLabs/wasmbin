@@ -140,7 +140,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
 
                     gen impl WasmbinDecode for @Self {
                         fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                            WasmbinDecodeWithDiscriminant::decode(r)
+                            WasmbinDecodeWithDiscriminant::decode_without_discriminant(r)
                         }
                     }
                 },
@@ -166,7 +166,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
 
                         gen impl WasmbinDecode for @Self {
                             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                                WasmbinDecodeWithDiscriminant::decode(r)
+                                WasmbinDecodeWithDiscriminant::decode_without_discriminant(r)
                             }
                         }
                     },
