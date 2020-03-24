@@ -93,24 +93,23 @@ pub trait WasmbinVisit: 'static + Sized {
         &'a self,
         f: &mut F,
     ) -> Result<(), VisitError<E>> {
-        match std::any::Any::downcast_ref(self) {
-            Some(v) => f(v).map_err(VisitError::Custom),
-            None => self.visit_children(f),
+        if let Some(v) = std::any::Any::downcast_ref(self) {
+            f(v).map_err(VisitError::Custom)?;
         }
+        self.visit_children(f)
     }
 
     fn visit_child_mut<'a, T: 'static, E, F: FnMut(&'a mut T) -> Result<(), E>>(
         &'a mut self,
         f: &mut F,
     ) -> Result<(), VisitError<E>> {
-        match std::any::Any::downcast_mut(self) {
-            Some(v) => f(unsafe {
+        if let Some(v) = std::any::Any::downcast_mut(self) {
+            f(unsafe {
                 // Working around an apparent bug in NLL: https://github.com/rust-lang/rust/issues/70255
                 &mut *(v as *mut _)
-            })
-            .map_err(VisitError::Custom),
-            None => self.visit_children_mut(f),
+            }).map_err(VisitError::Custom)?;
         }
+        self.visit_children_mut(f)
     }
 
     fn visit_children<'a, T: 'static, E, F: FnMut(&'a T) -> Result<(), E>>(
