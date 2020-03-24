@@ -1,4 +1,4 @@
-use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
+use crate::io::{DecodeError, WasmbinDecode, WasmbinDecodeWithDiscriminant, WasmbinEncode};
 use crate::visit::WasmbinVisit;
 use std::convert::TryFrom;
 
@@ -19,6 +19,15 @@ impl WasmbinDecode for u8 {
         let mut dest = 0;
         r.read_exact(std::slice::from_mut(&mut dest))?;
         Ok(dest)
+    }
+}
+
+impl WasmbinDecodeWithDiscriminant for u8 {
+    fn maybe_decode_with_discriminant(
+        discriminant: u8,
+        _r: &mut impl std::io::Read,
+    ) -> std::result::Result<std::option::Option<Self>, DecodeError> {
+        Ok(Some(discriminant))
     }
 }
 
