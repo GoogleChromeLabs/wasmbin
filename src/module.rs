@@ -1,12 +1,13 @@
-use crate::builtins::blob::Blob;
+use crate::builtins::Blob;
+use crate::io::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 use crate::sections::{Section, StdPayload};
-use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::visit::WasmbinVisit;
 use arbitrary::Arbitrary;
 use std::cmp::Ordering;
 
 const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00];
 
-#[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 struct MagicAndVersion;
 
 impl WasmbinEncode for MagicAndVersion {
@@ -26,7 +27,7 @@ impl WasmbinDecode for MagicAndVersion {
     }
 }
 
-#[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Module {
     magic_and_version: MagicAndVersion,
     pub sections: Vec<Section>,

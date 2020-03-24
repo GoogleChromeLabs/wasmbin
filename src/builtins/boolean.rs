@@ -1,4 +1,5 @@
-use crate::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::io::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::visit::WasmbinVisit;
 
 #[derive(Wasmbin)]
 #[repr(u8)]
@@ -25,3 +26,5 @@ impl WasmbinDecode for bool {
         })
     }
 }
+
+impl WasmbinVisit for bool {}

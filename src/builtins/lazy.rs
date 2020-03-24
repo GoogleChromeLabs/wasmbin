@@ -1,4 +1,6 @@
-use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
+use crate::builtins::WasmbinCountable;
+use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
+use crate::visit::{VisitError, WasmbinVisit};
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
 use once_cell::unsync::OnceCell;
@@ -165,3 +167,25 @@ impl<T: Arbitrary> Arbitrary for Lazy<T> {
 }
 
 impl<T: WasmbinCountable> WasmbinCountable for Lazy<T> {}
+
+impl<T: WasmbinDecode + WasmbinVisit> WasmbinVisit for Lazy<T> {
+    fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
+        &'a self,
+        f: &mut F,
+    ) -> Result<(), VisitError<E>> {
+        match self.try_contents() {
+            Ok(contents) => contents.visit_child(f),
+            Err(err) => Err(VisitError::LazyDecode(err)),
+        }
+    }
+
+    fn visit_children_mut<'a, VisitT: 'static, E, F: FnMut(&'a mut VisitT) -> Result<(), E>>(
+        &'a mut self,
+        f: &mut F,
+    ) -> Result<(), VisitError<E>> {
+        match self.try_contents_mut() {
+            Ok(contents) => contents.visit_child_mut(f),
+            Err(err) => Err(VisitError::LazyDecode(err)),
+        }
+    }
+}

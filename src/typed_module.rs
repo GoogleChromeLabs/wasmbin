@@ -1,12 +1,12 @@
-use crate::builtins::blob::Blob;
+use crate::builtins::Blob;
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
+use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
 use crate::sections::{
     CustomSection, DataInit, ElementInit, ExportDesc, ImportDesc, ImportPath, NameSubSection,
     RawCustomSection, Section,
 };
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
-use crate::{DecodeError, WasmbinDecode, WasmbinEncode};
 use std::convert::TryFrom;
 use std::iter::{Extend, FromIterator};
 use std::marker::PhantomData;

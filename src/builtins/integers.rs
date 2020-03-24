@@ -1,4 +1,5 @@
-use crate::{DecodeError, WasmbinDecode, WasmbinEncode};
+use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
+use crate::visit::WasmbinVisit;
 use std::convert::TryFrom;
 
 impl WasmbinEncode for u8 {
@@ -29,6 +30,8 @@ impl WasmbinDecode for Vec<u8> {
     }
 }
 
+impl WasmbinVisit for u8 {}
+
 impl WasmbinEncode for u32 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         leb128::write::unsigned(w, u64::from(*self)).map(|_| ())
@@ -42,6 +45,8 @@ impl WasmbinDecode for u32 {
     }
 }
 
+impl WasmbinVisit for u32 {}
+
 impl WasmbinEncode for i32 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         i64::from(*self).encode(w)
@@ -54,6 +59,8 @@ impl WasmbinDecode for i32 {
             .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))
     }
 }
+
+impl WasmbinVisit for i32 {}
 
 impl WasmbinEncode for usize {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -71,6 +78,8 @@ impl WasmbinDecode for usize {
     }
 }
 
+impl WasmbinVisit for usize {}
+
 impl WasmbinEncode for u64 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         leb128::write::unsigned(w, *self).map(|_| ())
@@ -83,6 +92,8 @@ impl WasmbinDecode for u64 {
     }
 }
 
+impl WasmbinVisit for u64 {}
+
 impl WasmbinEncode for i64 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         leb128::write::signed(w, *self).map(|_| ())
@@ -94,3 +105,5 @@ impl WasmbinDecode for i64 {
         Ok(leb128::read::signed(r)?)
     }
 }
+
+impl WasmbinVisit for i64 {}

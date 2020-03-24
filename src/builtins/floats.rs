@@ -1,4 +1,5 @@
-use crate::{DecodeError, WasmbinDecode, WasmbinEncode};
+use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
+use crate::visit::WasmbinVisit;
 
 impl WasmbinEncode for f32 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -14,6 +15,8 @@ impl WasmbinDecode for f32 {
     }
 }
 
+impl WasmbinVisit for f32 {}
+
 impl WasmbinEncode for f64 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         w.write_all(&self.to_bits().to_le_bytes())
@@ -27,3 +30,5 @@ impl WasmbinDecode for f64 {
         Ok(f64::from_bits(u64::from_le_bytes(bytes)))
     }
 }
+
+impl WasmbinVisit for f64 {}

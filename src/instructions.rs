@@ -1,6 +1,8 @@
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
+use crate::io::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
 use crate::types::BlockType;
-use crate::{wasmbin_discriminants, DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::visit::WasmbinVisit;
+use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 
 #[wasmbin_discriminants]
@@ -32,7 +34,7 @@ impl WasmbinDecode for Vec<Instruction> {
     }
 }
 
-#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Expression(Vec<Instruction>);
 
 impl std::ops::Deref for Expression {
@@ -49,13 +51,13 @@ impl std::ops::DerefMut for Expression {
     }
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct BlockBody {
     pub return_type: BlockType,
     pub expr: Expression,
 }
 
-#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct IfElse {
     pub return_type: BlockType,
     pub then: Expression,
@@ -111,7 +113,7 @@ impl WasmbinDecode for IfElse {
     }
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
@@ -121,7 +123,7 @@ pub struct MemArg {
 ///
 /// This is useful in instruction context, where we don't care
 /// about general floating number rules.
-#[derive(Wasmbin, Debug, Arbitrary, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, Clone, WasmbinVisit)]
 pub struct FloatConst<F> {
     pub value: F,
 }
@@ -153,7 +155,7 @@ impl std::hash::Hash for FloatConst<f64> {
 }
 
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 #[repr(u8)]
 pub enum Instruction {
     Unreachable = 0x00,

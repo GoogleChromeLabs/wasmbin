@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::fs::File;
-use wasmbin::{WasmbinDecode, WasmbinEncode};
+use wasmbin::io::{WasmbinDecode, WasmbinEncode};
 
 macro_rules! bench_group {
     ($name:ident) => {

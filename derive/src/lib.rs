@@ -6,7 +6,7 @@ use synstructure::{decl_derive, Structure, VariantInfo};
 
 macro_rules! syn_throw {
     ($err:expr) => {
-        return syn::Error::to_compile_error(&$err)
+        return syn::Error::to_compile_error(&$err);
     };
 }
 
@@ -46,8 +46,14 @@ fn discriminant<'v>(v: &VariantInfo<'v>) -> syn::Result<Option<Cow<'v, syn::Expr
         .try_fold(None, |prev, discriminant| {
             let discriminant = discriminant?;
             if let Some(prev) = prev {
-                let mut err = syn::Error::new_spanned(discriminant, "#[derive(Wasmbin)]: duplicate discriminant");
-                err.combine(syn::Error::new_spanned(prev, "#[derive(Wasmbin)]: previous discriminant here"));
+                let mut err = syn::Error::new_spanned(
+                    discriminant,
+                    "#[derive(Wasmbin)]: duplicate discriminant",
+                );
+                err.combine(syn::Error::new_spanned(
+                    prev,
+                    "#[derive(Wasmbin)]: previous discriminant here",
+                ));
                 return Err(err);
             }
             Ok(Some(discriminant))
@@ -95,7 +101,10 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     None => {
                         let fields = v.ast().fields;
                         if fields.len() != 1 {
-                            syn_throw!(syn::Error::new_spanned(fields, "Catch-all variants without discriminant must have a single field."));
+                            syn_throw!(syn::Error::new_spanned(
+                                fields,
+                                "Catch-all variants without discriminant must have a single field."
+                            ));
                         }
                         let field = fields.iter().next().unwrap();
                         let construct = match &field.ident {
@@ -183,7 +192,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
     });
 
     s.gen_impl(quote! {
-        use crate::{WasmbinEncode, WasmbinDecode, WasmbinDecodeWithDiscriminant, DecodeError};
+        use crate::io::{WasmbinEncode, WasmbinDecode, WasmbinDecodeWithDiscriminant, DecodeError};
 
         gen impl WasmbinEncode for @Self {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -199,7 +208,39 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
 
 fn wasmbin_countable_derive(s: Structure) -> proc_macro2::TokenStream {
     s.gen_impl(quote! {
-        gen impl crate::WasmbinCountable for @Self {}
+        gen impl crate::builtins::WasmbinCountable for @Self {}
+    })
+}
+
+fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
+    s.bind_with(|_| synstructure::BindStyle::Move);
+
+    let visit_children_body = s.each(|bi| {
+        quote! {
+            WasmbinVisit::visit_child(#bi, f)?
+        }
+    });
+
+    let visit_children_mut_body = s.each(|bi| {
+        quote! {
+            WasmbinVisit::visit_child_mut(#bi, f)?
+        }
+    });
+
+    s.gen_impl(quote! {
+        use crate::visit::{WasmbinVisit, VisitError};
+
+        gen impl WasmbinVisit for @Self where Self: 'static {
+            fn visit_children<'a, VisitT: 'static, VisitE, VisitF: FnMut(&'a VisitT) -> Result<(), VisitE>>(&'a self, f: &mut VisitF) -> Result<(), VisitError<VisitE>> {
+                match self { #visit_children_body }
+                Ok(())
+            }
+
+            fn visit_children_mut<'a, VisitT: 'static, VisitE, VisitF: FnMut(&'a mut VisitT) -> Result<(), VisitE>>(&'a mut self, f: &mut VisitF) -> Result<(), VisitError<VisitE>> {
+                match self { #visit_children_mut_body }
+                Ok(())
+            }
+        }
     })
 }
 
@@ -236,3 +277,4 @@ pub fn wasmbin_discriminants(
 
 decl_derive!([Wasmbin, attributes(wasmbin)] => wasmbin_derive);
 decl_derive!([WasmbinCountable] => wasmbin_countable_derive);
+decl_derive!([WasmbinVisit] => wasmbin_visit_derive);

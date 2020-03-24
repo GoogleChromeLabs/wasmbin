@@ -1,4 +1,6 @@
-use crate::{DecodeError, WasmbinCountable, WasmbinDecode, WasmbinEncode};
+use crate::builtins::WasmbinCountable;
+use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
+use crate::visit::WasmbinVisit;
 use arbitrary::Arbitrary;
 
 #[cfg(feature = "lazy-blob")]
@@ -15,7 +17,7 @@ macro_rules! if_lazy {
     };
 }
 
-#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct RawBlob<T = Vec<u8>> {
     pub contents: T,
 }
@@ -47,7 +49,7 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for RawBlob<T> {
 }
 
 if_lazy!(if lazy {
-    use crate::builtins::lazy::Lazy as BlobContents;
+    use crate::builtins::Lazy as BlobContents;
 
     impl<T: WasmbinDecode> Blob<T> {
         pub fn try_contents(&self) -> Result<&T, DecodeError> {
@@ -80,7 +82,7 @@ if_lazy!(if lazy {
     }
 });
 
-#[derive(Default, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Blob<T: WasmbinDecode> {
     contents: BlobContents<T>,
 }

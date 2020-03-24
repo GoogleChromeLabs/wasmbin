@@ -1,21 +1,23 @@
-use crate::builtins::blob::{Blob, RawBlob};
-use crate::builtins::lazy::Lazy;
+use crate::builtins::Lazy;
+use crate::builtins::WasmbinCountable;
+use crate::builtins::{Blob, RawBlob};
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
-use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
-use crate::{
-    wasmbin_discriminants, DecodeError, Wasmbin, WasmbinCountable, WasmbinDecode,
-    WasmbinDecodeWithDiscriminant, WasmbinEncode,
+use crate::io::{
+    DecodeError, Wasmbin, WasmbinDecode, WasmbinDecodeWithDiscriminant, WasmbinEncode,
 };
+use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
+use crate::visit::WasmbinVisit;
+use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct ModuleNameSubSection {
     pub name: String,
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct NameAssoc<I, V> {
     pub index: I,
     pub value: V,
@@ -23,13 +25,13 @@ pub struct NameAssoc<I, V> {
 
 impl<I, V> WasmbinCountable for NameAssoc<I, V> {}
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct NameMap<I, V> {
     pub items: Vec<NameAssoc<I, V>>,
 }
 
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 #[repr(u8)]
 pub enum NameSubSection {
     Module(Blob<String>) = 0,
@@ -65,7 +67,7 @@ impl WasmbinDecode for Vec<NameSubSection> {
     }
 }
 
-#[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct RawCustomSection {
     name: String,
 
@@ -75,7 +77,7 @@ pub struct RawCustomSection {
 
 macro_rules! define_custom_sections {
     ($($name:ident($ty:ty) = $disc:literal,)*) => {
-        #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+        #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
         pub enum CustomSection {
             $($name(Lazy<$ty>),)*
             Other(RawCustomSection),
@@ -110,7 +112,7 @@ define_custom_sections! {
 }
 
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 #[repr(u8)]
 pub enum ImportDesc {
     Func(TypeId) = 0x00,
@@ -119,26 +121,26 @@ pub enum ImportDesc {
     Global(GlobalType) = 0x03,
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct ImportPath {
     pub module: String,
     pub name: String,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Import {
     pub path: ImportPath,
     pub desc: ImportDesc,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Global {
     pub ty: GlobalType,
     pub init: Expression,
 }
 
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 #[repr(u8)]
 pub enum ExportDesc {
     Func(FuncId) = 0x00,
@@ -147,44 +149,50 @@ pub enum ExportDesc {
     Global(GlobalId) = 0x03,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Export {
     pub name: String,
     pub desc: ExportDesc,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct ElementInit {
     pub offset: Expression,
     pub funcs: Vec<FuncId>,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Element {
     pub table: TableId,
     pub init: ElementInit,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Locals {
     pub repeat: u32,
     pub ty: ValueType,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(
+    Wasmbin, WasmbinCountable, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit,
+)]
 pub struct FuncBody {
     pub locals: Vec<Locals>,
     pub expr: Expression,
 }
 
-#[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(
+    Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit,
+)]
 pub struct DataInit {
     pub offset: Expression,
     #[debug(with = "custom_debug::hexbuf_str")]
     pub blob: RawBlob,
 }
 
-#[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+#[derive(
+    Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit,
+)]
 pub struct Data {
     pub memory: MemId,
     pub init: DataInit,
@@ -207,7 +215,7 @@ macro_rules! define_sections {
         }
 
         #[wasmbin_discriminants]
-        #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+        #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
         #[repr(u8)]
         pub enum Section {
             $($name(Blob<payload::$name>) = $disc,)*

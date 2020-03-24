@@ -1,7 +1,8 @@
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom};
-use wasmbin::{module::Module, WasmbinDecode};
+use wasmbin::io::WasmbinDecode;
+use wasmbin::module::Module;
 
 fn main() {
     let f = File::open(std::env::args().nth(1).expect("expected filename")).unwrap();
