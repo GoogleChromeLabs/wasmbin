@@ -25,20 +25,68 @@ impl<E: std::fmt::Debug> std::fmt::Debug for VisitError<E> {
 
 impl<E: std::error::Error> std::error::Error for VisitError<E> {}
 
+#[cfg(feature = "nightly")]
+pub type NeverError = !;
+
+#[cfg(not(feature = "nightly"))]
+pub enum NeverError {}
+
+impl From<VisitError<NeverError>> for DecodeError {
+    fn from(err: VisitError<NeverError>) -> Self {
+        match err {
+            VisitError::Custom(err) => match err {},
+            VisitError::LazyDecode(err) => err,
+        }
+    }
+}
+
+pub trait VisitResult {
+    type Error;
+
+    fn as_result(self) -> Result<(), Self::Error>;
+}
+
+impl VisitResult for () {
+    type Error = NeverError;
+
+    fn as_result(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl VisitResult for bool {
+    type Error = ();
+
+    fn as_result(self) -> Result<(), Self::Error> {
+        match self {
+            true => Ok(()),
+            false => Err(()),
+        }
+    }
+}
+
+impl<E> VisitResult for Result<(), E> {
+    type Error = E;
+
+    fn as_result(self) -> Result<(), Self::Error> {
+        self
+    }
+}
+
 pub use wasmbin_derive::WasmbinVisit;
 pub trait WasmbinVisit: 'static + Sized {
-    fn visit<'a, T: 'static, E, F: FnMut(&'a T) -> Result<(), E>>(
+    fn visit<'a, T: 'static, R: VisitResult, F: FnMut(&'a T) -> R>(
         &'a self,
         mut f: F,
-    ) -> Result<(), VisitError<E>> {
-        self.visit_child(&mut f)
+    ) -> Result<(), VisitError<R::Error>> {
+        self.visit_child(&mut move |item| f(item).as_result())
     }
 
-    fn visit_mut<'a, T: 'static, E, F: FnMut(&'a mut T) -> Result<(), E>>(
+    fn visit_mut<'a, T: 'static, R: VisitResult, F: FnMut(&'a mut T) -> R>(
         &'a mut self,
         mut f: F,
-    ) -> Result<(), VisitError<E>> {
-        self.visit_child_mut(&mut f)
+    ) -> Result<(), VisitError<R::Error>> {
+        self.visit_child_mut(&mut move |item| f(item).as_result())
     }
 
     fn visit_child<'a, T: 'static, E, F: FnMut(&'a T) -> Result<(), E>>(
