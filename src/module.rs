@@ -8,7 +8,7 @@ use std::cmp::Ordering;
 const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00];
 
 #[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
-struct MagicAndVersion;
+pub struct MagicAndVersion;
 
 impl WasmbinEncode for MagicAndVersion {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
