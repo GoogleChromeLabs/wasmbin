@@ -236,7 +236,7 @@ fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
                 Ok(())
             }
 
-            fn visit_children_mut<'a, VisitT: 'static, VisitE, VisitF: FnMut(&'a mut VisitT) -> Result<(), VisitE>>(&'a mut self, f: &mut VisitF) -> Result<(), VisitError<VisitE>> {
+            fn visit_children_mut<VisitT: 'static, VisitE, VisitF: FnMut(&mut VisitT) -> Result<(), VisitE>>(&mut self, f: &mut VisitF) -> Result<(), VisitError<VisitE>> {
                 match self { #visit_children_mut_body }
                 Ok(())
             }

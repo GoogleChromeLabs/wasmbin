@@ -82,8 +82,8 @@ pub trait WasmbinVisit: 'static + Sized {
         self.visit_child(&mut move |item| f(item).as_result())
     }
 
-    fn visit_mut<'a, T: 'static, R: VisitResult, F: FnMut(&'a mut T) -> R>(
-        &'a mut self,
+    fn visit_mut<T: 'static, R: VisitResult, F: FnMut(&mut T) -> R>(
+        &mut self,
         mut f: F,
     ) -> Result<(), VisitError<R::Error>> {
         self.visit_child_mut(&mut move |item| f(item).as_result())
@@ -99,15 +99,12 @@ pub trait WasmbinVisit: 'static + Sized {
         self.visit_children(f)
     }
 
-    fn visit_child_mut<'a, T: 'static, E, F: FnMut(&'a mut T) -> Result<(), E>>(
-        &'a mut self,
+    fn visit_child_mut<T: 'static, E, F: FnMut(&mut T) -> Result<(), E>>(
+        &mut self,
         f: &mut F,
     ) -> Result<(), VisitError<E>> {
         if let Some(v) = std::any::Any::downcast_mut(self) {
-            f(unsafe {
-                // Working around an apparent bug in NLL: https://github.com/rust-lang/rust/issues/70255
-                &mut *(v as *mut _)
-            }).map_err(VisitError::Custom)?;
+            f(v).map_err(VisitError::Custom)?;
         }
         self.visit_children_mut(f)
     }
@@ -119,8 +116,8 @@ pub trait WasmbinVisit: 'static + Sized {
         Ok(())
     }
 
-    fn visit_children_mut<'a, T: 'static, E, F: FnMut(&'a mut T) -> Result<(), E>>(
-        &'a mut self,
+    fn visit_children_mut<T: 'static, E, F: FnMut(&mut T) -> Result<(), E>>(
+        &mut self,
         _f: &mut F,
     ) -> Result<(), VisitError<E>> {
         Ok(())

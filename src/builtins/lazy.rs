@@ -179,8 +179,8 @@ impl<T: WasmbinDecode + WasmbinVisit> WasmbinVisit for Lazy<T> {
         }
     }
 
-    fn visit_children_mut<'a, VisitT: 'static, E, F: FnMut(&'a mut VisitT) -> Result<(), E>>(
-        &'a mut self,
+    fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
+        &mut self,
         f: &mut F,
     ) -> Result<(), VisitError<E>> {
         match self.try_contents_mut() {

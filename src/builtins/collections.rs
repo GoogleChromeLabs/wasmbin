@@ -43,8 +43,8 @@ impl<T: WasmbinVisit> WasmbinVisit for Vec<T> {
         Ok(())
     }
 
-    fn visit_children_mut<'a, VisitT: 'static, E, F: FnMut(&'a mut VisitT) -> Result<(), E>>(
-        &'a mut self,
+    fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
+        &mut self,
         f: &mut F,
     ) -> Result<(), VisitError<E>> {
         for v in self {
@@ -65,8 +65,8 @@ impl<T: WasmbinVisit> WasmbinVisit for Option<T> {
         }
     }
 
-    fn visit_children_mut<'a, VisitT: 'static, E, F: FnMut(&'a mut VisitT) -> Result<(), E>>(
-        &'a mut self,
+    fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
+        &mut self,
         f: &mut F,
     ) -> Result<(), VisitError<E>> {
         match self {
