@@ -66,6 +66,7 @@ macro_rules! bench_group {
                 c.bench_function(
                     concat!(stringify!($name), "::bench_parse_deep_module"),
                     |b| {
+                        assert!(cfg!(not(feature = "lazy-blob")));
                         let mut f = Vec::new();
                         deep_module().encode(&mut f).unwrap();
                         b.iter(|| {
@@ -120,6 +121,7 @@ macro_rules! bench_group {
                 c.bench_function(
                     concat!(stringify!($name), "::bench_write_deep_module"),
                     |b| {
+                        assert!(cfg!(not(feature = "lazy-blob")));
                         let m = deep_module();
                         b.iter(|| {
                             let mut f = Vec::new();
