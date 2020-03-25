@@ -1,5 +1,5 @@
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
-use crate::io::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::io::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode, WasmbinDecodeWithDiscriminant};
 use crate::types::BlockType;
 use crate::visit::{VisitError, WasmbinVisit};
 use crate::wasmbin_discriminants;
@@ -7,15 +7,6 @@ use arbitrary::Arbitrary;
 
 const OP_CODE_BLOCK_START: u8 = 0x02;
 const OP_CODE_END: u8 = 0x0B;
-
-#[wasmbin_discriminants]
-#[derive(Wasmbin)]
-#[repr(u8)]
-enum SeqInstructionRepr {
-    BlockStart = OP_CODE_BLOCK_START,
-    Instruction(Instruction),
-    End = OP_CODE_END,
-}
 
 impl WasmbinEncode for [Instruction] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -25,7 +16,7 @@ impl WasmbinEncode for [Instruction] {
             while let Some(instr) = current_iter.next() {
                 match instr {
                     Instruction::Block(body) => {
-                        SeqInstructionRepr::BlockStart.encode(w)?;
+                        OP_CODE_BLOCK_START.encode(w)?;
                         body.return_type.encode(w)?;
                         block_stack.push(std::mem::replace(&mut current_iter, body.expr.iter()));
                     }
@@ -34,7 +25,7 @@ impl WasmbinEncode for [Instruction] {
                     }
                 }
             }
-            SeqInstructionRepr::End.encode(w)?;
+            OP_CODE_END.encode(w)?;
             match block_stack.pop() {
                 Some(iter) => {
                     current_iter = iter;
@@ -55,8 +46,8 @@ impl WasmbinDecode for Vec<Instruction> {
             expr: Expression::default(),
         };
         loop {
-            match SeqInstructionRepr::decode(r)? {
-                SeqInstructionRepr::BlockStart => {
+            match u8::decode(r)? {
+                OP_CODE_BLOCK_START => {
                     let return_type = BlockType::decode(r)?;
                     block_stack.push(std::mem::replace(
                         &mut current_res,
@@ -66,16 +57,18 @@ impl WasmbinDecode for Vec<Instruction> {
                         },
                     ));
                 }
-                SeqInstructionRepr::Instruction(instr) => {
-                    current_res.expr.push(instr);
-                }
-                SeqInstructionRepr::End => match block_stack.pop() {
+                OP_CODE_END => match block_stack.pop() {
                     Some(block) => {
                         let block_body = std::mem::replace(&mut current_res, block);
                         current_res.expr.push(Instruction::Block(block_body));
                     }
-                    None => return Ok(std::mem::take(&mut current_res.expr.0)),
-                },
+                    None => {
+                        return Ok(std::mem::take(&mut current_res.expr.0));
+                    }
+                }
+                discriminant => {
+                    current_res.expr.push(Instruction::decode_with_discriminant(discriminant, r)?);
+                }
             }
         }
     }
@@ -191,14 +184,7 @@ pub struct IfElse {
     pub otherwise: Expression,
 }
 
-#[wasmbin_discriminants]
-#[derive(Wasmbin)]
-#[repr(u8)]
-enum IfElseInstructionRepr {
-    Instruction(Instruction),
-    Else = 0x05,
-    End = OP_CODE_END,
-}
+const OP_CODE_ELSE: u8 = 0x05;
 
 impl WasmbinEncode for IfElse {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -207,12 +193,12 @@ impl WasmbinEncode for IfElse {
             instr.encode(w)?;
         }
         if !self.otherwise.is_empty() {
-            IfElseInstructionRepr::Else.encode(w)?;
+            OP_CODE_ELSE.encode(w)?;
             for instr in &self.otherwise.0 {
                 instr.encode(w)?;
             }
         }
-        IfElseInstructionRepr::End.encode(w)
+        OP_CODE_END.encode(w)
     }
 }
 
@@ -224,16 +210,16 @@ impl WasmbinDecode for IfElse {
             otherwise: Expression::default(),
         };
         loop {
-            match IfElseInstructionRepr::decode(r)? {
-                IfElseInstructionRepr::Instruction(instr) => {
-                    res.then.push(instr);
-                }
-                IfElseInstructionRepr::Else => {
+            match u8::decode(r)? {
+                OP_CODE_ELSE => {
                     res.otherwise = Expression::decode(r)?;
                     break;
                 }
-                IfElseInstructionRepr::End => {
+                OP_CODE_END => {
                     break;
+                }
+                discriminant => {
+                    res.then.push(Instruction::decode_with_discriminant(discriminant, r)?);
                 }
             }
         }
