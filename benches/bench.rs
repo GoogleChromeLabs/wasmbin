@@ -10,17 +10,16 @@ macro_rules! bench_group {
 
             fn deep_module() -> Module {
                 use wasmbin::builtins::Blob;
-                use wasmbin::instructions::{BlockBody, Expression, Instruction};
+                use wasmbin::instructions::{Expression, Instruction};
                 use wasmbin::sections::FuncBody;
                 use wasmbin::types::BlockType;
 
                 let mut expr = Expression::default();
                 for _ in 0..100_000 {
-                    let old_expr = std::mem::take(&mut expr);
-                    expr.push(Instruction::Block(BlockBody {
-                        return_type: BlockType::Empty,
-                        expr: old_expr,
-                    }));
+                    expr.push(Instruction::BlockStart(BlockType::Empty));
+                }
+                for _ in 0..100_000 {
+                    expr.push(Instruction::End);
                 }
                 let raw = wasmbin::module::Module {
                     sections: vec![vec![Blob::from(FuncBody {

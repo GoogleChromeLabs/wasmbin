@@ -1,231 +1,49 @@
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
-use crate::io::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode, WasmbinDecodeWithDiscriminant};
+use crate::io::{
+    DecodeError, Wasmbin, WasmbinDecode, WasmbinDecodeWithDiscriminant, WasmbinEncode,
+};
 use crate::types::BlockType;
-use crate::visit::{VisitError, WasmbinVisit};
+use crate::visit::WasmbinVisit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 
 const OP_CODE_BLOCK_START: u8 = 0x02;
+const OP_CODE_LOOP_START: u8 = 0x03;
+const OP_CODE_IF_START: u8 = 0x04;
 const OP_CODE_END: u8 = 0x0B;
 
 impl WasmbinEncode for [Instruction] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        let mut block_stack = Vec::new();
-        let mut current_iter = self.iter();
-        loop {
-            while let Some(instr) = current_iter.next() {
-                match instr {
-                    Instruction::Block(body) => {
-                        OP_CODE_BLOCK_START.encode(w)?;
-                        body.return_type.encode(w)?;
-                        block_stack.push(std::mem::replace(&mut current_iter, body.expr.iter()));
-                    }
-                    _ => {
-                        instr.encode(w)?;
-                    }
-                }
-            }
-            OP_CODE_END.encode(w)?;
-            match block_stack.pop() {
-                Some(iter) => {
-                    current_iter = iter;
-                }
-                None => {
-                    return Ok(());
-                }
-            }
-        }
-    }
-}
-
-impl WasmbinDecode for Vec<Instruction> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut block_stack = Vec::new();
-        let mut current_res = BlockBody {
-            return_type: BlockType::Empty,
-            expr: Expression::default(),
-        };
-        loop {
-            match u8::decode(r)? {
-                OP_CODE_BLOCK_START => {
-                    let return_type = BlockType::decode(r)?;
-                    block_stack.push(std::mem::replace(
-                        &mut current_res,
-                        BlockBody {
-                            return_type,
-                            expr: Expression::default(),
-                        },
-                    ));
-                }
-                OP_CODE_END => match block_stack.pop() {
-                    Some(block) => {
-                        let block_body = std::mem::replace(&mut current_res, block);
-                        current_res.expr.push(Instruction::Block(block_body));
-                    }
-                    None => {
-                        return Ok(std::mem::take(&mut current_res.expr.0));
-                    }
-                }
-                discriminant => {
-                    current_res.expr.push(Instruction::decode_with_discriminant(discriminant, r)?);
-                }
-            }
-        }
-    }
-}
-
-#[derive(Wasmbin, Default, Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
-pub struct Expression(Vec<Instruction>);
-
-impl std::ops::Deref for Expression {
-    type Target = Vec<Instruction>;
-
-    fn deref(&self) -> &Vec<Instruction> {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for Expression {
-    fn deref_mut(&mut self) -> &mut Vec<Instruction> {
-        &mut self.0
-    }
-}
-
-impl Drop for Expression {
-    fn drop(&mut self) {
-        let mut expr_list = Vec::new();
-        let mut cur_expr = std::mem::take(&mut self.0);
-
-        loop {
-            for instr in cur_expr.into_iter() {
-                if let Instruction::Block(mut block) = instr {
-                    expr_list.push(std::mem::take(&mut block.expr.0));
-                }
-            }
-            cur_expr = match expr_list.pop() {
-                Some(expr) => expr,
-                None => break,
-            }
-        }
-    }
-}
-
-impl WasmbinVisit for Expression {
-    fn visit_children<'a, T: 'static, E, F: FnMut(&'a T) -> Result<(), E>>(
-        &'a self,
-        f: &mut F,
-    ) -> Result<(), VisitError<E>> {
-        let mut block_stack = Vec::new();
-        let mut current_iter = self.iter();
-        loop {
-            while let Some(instr) = current_iter.next() {
-                if let Some(v) = std::any::Any::downcast_ref(instr) {
-                    f(v).map_err(VisitError::Custom)?;
-                }
-                match instr {
-                    Instruction::Block(body) => {
-                        block_stack.push(std::mem::replace(&mut current_iter, body.expr.iter()));
-                    }
-                    _ => instr.visit_children(f)?,
-                }
-            }
-            match block_stack.pop() {
-                Some(iter) => {
-                    current_iter = iter;
-                }
-                None => {
-                    return Ok(());
-                }
-            }
-        }
-    }
-
-    fn visit_children_mut<T: 'static, E, F: FnMut(&mut T) -> Result<(), E>>(
-        &mut self,
-        f: &mut F,
-    ) -> Result<(), VisitError<E>> {
-        let mut block_stack = Vec::new();
-        let mut current_iter = self.iter_mut();
-        loop {
-            while let Some(instr) = current_iter.next() {
-                if let Some(v) = std::any::Any::downcast_mut(instr) {
-                    f(v).map_err(VisitError::Custom)?;
-                }
-                match instr {
-                    Instruction::Block(body) => {
-                        block_stack
-                            .push(std::mem::replace(&mut current_iter, body.expr.iter_mut()));
-                    }
-                    _ => instr.visit_children_mut(f)?,
-                }
-            }
-            match block_stack.pop() {
-                Some(iter) => {
-                    current_iter = iter;
-                }
-                None => {
-                    return Ok(());
-                }
-            }
-        }
-    }
-}
-
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
-pub struct BlockBody {
-    pub return_type: BlockType,
-    pub expr: Expression,
-}
-
-#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
-pub struct IfElse {
-    pub return_type: BlockType,
-    pub then: Expression,
-    pub otherwise: Expression,
-}
-
-const OP_CODE_ELSE: u8 = 0x05;
-
-impl WasmbinEncode for IfElse {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        self.return_type.encode(w)?;
-        for instr in &self.then.0 {
+        for instr in self {
             instr.encode(w)?;
-        }
-        if !self.otherwise.is_empty() {
-            OP_CODE_ELSE.encode(w)?;
-            for instr in &self.otherwise.0 {
-                instr.encode(w)?;
-            }
         }
         OP_CODE_END.encode(w)
     }
 }
 
-impl WasmbinDecode for IfElse {
+impl WasmbinDecode for Vec<Instruction> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut res = IfElse {
-            return_type: BlockType::decode(r)?,
-            then: Expression::default(),
-            otherwise: Expression::default(),
-        };
+        let mut res = Vec::new();
+        let mut depth: usize = 0;
         loop {
-            match u8::decode(r)? {
-                OP_CODE_ELSE => {
-                    res.otherwise = Expression::decode(r)?;
-                    break;
+            let op_code = u8::decode(r)?;
+            match op_code {
+                OP_CODE_BLOCK_START | OP_CODE_LOOP_START | OP_CODE_IF_START => {
+                    depth += 1;
                 }
-                OP_CODE_END => {
-                    break;
+                OP_CODE_END => match depth.checked_sub(1) {
+                    Some(new_depth) => depth = new_depth,
+                    None => break,
                 }
-                discriminant => {
-                    res.then.push(Instruction::decode_with_discriminant(discriminant, r)?);
-                }
+                _ => {}
             }
+            res.push(Instruction::decode_with_discriminant(op_code, r)?);
         }
         Ok(res)
     }
 }
+
+pub type Expression = Vec<Instruction>;
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct MemArg {
@@ -274,9 +92,11 @@ impl std::hash::Hash for FloatConst<f64> {
 pub enum Instruction {
     Unreachable = 0x00,
     Nop = 0x01,
-    Block(BlockBody) = OP_CODE_BLOCK_START,
-    Loop(BlockBody) = 0x03,
-    IfElse(IfElse) = 0x04,
+    BlockStart(BlockType) = OP_CODE_BLOCK_START,
+    LoopStart(BlockType) = OP_CODE_LOOP_START,
+    IfStart(BlockType) = OP_CODE_IF_START,
+    IfElse = 0x05,
+    End = OP_CODE_END,
     Br(LabelId) = 0x0C,
     BrIf(LabelId) = 0x0D,
     BrTable {
