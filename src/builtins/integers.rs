@@ -22,6 +22,20 @@ impl WasmbinDecode for u8 {
     }
 }
 
+impl WasmbinDecode for Option<u8> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        let mut dest = 0;
+        loop {
+            return match r.read(std::slice::from_mut(&mut dest)) {
+                Ok(0) => Ok(None),
+                Ok(_) => Ok(Some(dest)),
+                Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(err) => Err(DecodeError::Io(err)),
+            };
+        }
+    }
+}
+
 impl WasmbinDecodeWithDiscriminant for u8 {
     fn maybe_decode_with_discriminant(
         discriminant: u8,

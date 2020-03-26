@@ -51,19 +51,10 @@ impl WasmbinEncode for [NameSubSection] {
 impl WasmbinDecode for Vec<NameSubSection> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut sub = Vec::new();
-        loop {
-            match u8::decode(r) {
-                Err(DecodeError::Io(err)) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
-                    return Ok(sub);
-                }
-                Err(err) => {
-                    return Err(err);
-                }
-                Ok(discriminant) => {
-                    sub.push(NameSubSection::decode_with_discriminant(discriminant, r)?);
-                }
-            }
+        while let Some(disc) = Option::decode(r)? {
+            sub.push(NameSubSection::decode_with_discriminant(disc, r)?);
         }
+        Ok(sub)
     }
 }
 
@@ -317,18 +308,9 @@ impl WasmbinEncode for [Section] {
 impl WasmbinDecode for Vec<Section> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut sections = Vec::new();
-        loop {
-            match u8::decode(r) {
-                Err(DecodeError::Io(err)) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
-                    return Ok(sections);
-                }
-                Err(err) => {
-                    return Err(err);
-                }
-                Ok(discriminant) => {
-                    sections.push(Section::decode_with_discriminant(discriminant, r)?);
-                }
-            }
+        while let Some(disc) = Option::decode(r)? {
+            sections.push(Section::decode_with_discriminant(disc, r)?);
         }
+        Ok(sections)
     }
 }
