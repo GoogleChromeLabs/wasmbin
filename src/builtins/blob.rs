@@ -1,21 +1,7 @@
-use crate::builtins::WasmbinCountable;
+use crate::builtins::{Lazy, WasmbinCountable};
 use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
 use crate::visit::WasmbinVisit;
 use arbitrary::Arbitrary;
-
-#[cfg(feature = "lazy-blob")]
-macro_rules! if_lazy {
-    (if lazy { $($then:tt)* } $(else { $($otherwise:tt)* })?) => {
-        $($then)*
-    };
-}
-
-#[cfg(not(feature = "lazy-blob"))]
-macro_rules! if_lazy {
-    (if lazy { $($then:tt)* } $(else { $($otherwise:tt)* })?) => {
-        $($($otherwise)*)?
-    };
-}
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct RawBlob<T = Vec<u8>> {
@@ -48,43 +34,41 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for RawBlob<T> {
     }
 }
 
-if_lazy!(if lazy {
-    use crate::builtins::Lazy as BlobContents;
-
-    impl<T: WasmbinDecode> Blob<T> {
-        pub fn try_contents(&self) -> Result<&T, DecodeError> {
-            self.contents.try_contents()
-        }
-
-        pub fn try_contents_mut(&mut self) -> Result<&mut T, DecodeError> {
-            self.contents.try_contents_mut()
-        }
-
-        pub fn try_into_contents(self) -> Result<T, DecodeError> {
-            self.contents.try_into_contents()
-        }
-    }
-} else {
-    type BlobContents<T> = T;
-
-    impl<T: WasmbinDecode> Blob<T> {
-        pub fn try_contents(&self) -> Result<&T, DecodeError> {
-            Ok(&self.contents)
-        }
-
-        pub fn try_contents_mut(&mut self) -> Result<&mut T, DecodeError> {
-            Ok(&mut self.contents)
-        }
-
-        pub fn try_into_contents(self) -> Result<T, DecodeError> {
-            Ok(self.contents)
-        }
-    }
-});
-
 #[derive(Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
 pub struct Blob<T: WasmbinDecode> {
-    contents: BlobContents<T>,
+    contents: Lazy<T>,
+}
+
+impl<T: WasmbinDecode> Blob<T> {
+    pub fn try_contents(&self) -> Result<&T, DecodeError> {
+        self.contents.try_contents()
+    }
+
+    pub fn try_contents_mut(&mut self) -> Result<&mut T, DecodeError> {
+        self.contents.try_contents_mut()
+    }
+
+    pub fn try_into_contents(self) -> Result<T, DecodeError> {
+        self.contents.try_into_contents()
+    }
+}
+
+#[cfg(not(feature = "lazy-blob"))]
+impl<T: WasmbinDecode> Blob<T> {
+    pub fn contents(&self) -> &T {
+        self.try_contents()
+            .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() })
+    }
+
+    pub fn contents_mut(&mut self) -> &mut T {
+        self.try_contents_mut()
+            .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() })
+    }
+
+    pub fn into_contents(self) -> T {
+        self.try_into_contents()
+            .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() })
+    }
 }
 
 impl<T: WasmbinDecode + std::fmt::Debug> std::fmt::Debug for Blob<T> {
@@ -97,14 +81,10 @@ impl<T: WasmbinDecode + std::fmt::Debug> std::fmt::Debug for Blob<T> {
 
 impl<T: WasmbinDecode + WasmbinEncode> WasmbinEncode for Blob<T> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        let value = if_lazy!(if lazy {
-            match self.contents.try_as_raw() {
-                Ok(raw) => return RawBlob { contents: raw }.encode(w),
-                Err(value) => value,
-            }
-        } else {
-            &self.contents
-        });
+        let value = match self.contents.try_as_raw() {
+            Ok(raw) => return RawBlob { contents: raw }.encode(w),
+            Err(value) => value,
+        };
         let mut buf;
         buf = Vec::new();
         value.encode(&mut buf)?;
@@ -114,9 +94,12 @@ impl<T: WasmbinDecode + WasmbinEncode> WasmbinEncode for Blob<T> {
 
 impl<T: WasmbinDecode> WasmbinDecode for Blob<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Ok(Blob {
-            contents: RawBlob::decode(r)?.contents,
-        })
+        let contents: Lazy<T> = RawBlob::decode(r)?.contents;
+        #[cfg(not(feature = "lazy-blob"))]
+        {
+            contents.try_contents()?;
+        }
+        Ok(Self { contents })
     }
 }
 
