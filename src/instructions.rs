@@ -34,7 +34,7 @@ impl WasmbinDecode for Vec<Instruction> {
                 OP_CODE_END => match depth.checked_sub(1) {
                     Some(new_depth) => depth = new_depth,
                     None => break,
-                }
+                },
                 _ => {}
             }
             res.push(Instruction::decode_with_discriminant(op_code, r)?);
