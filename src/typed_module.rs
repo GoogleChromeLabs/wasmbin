@@ -1,7 +1,7 @@
 use crate::builtins::Blob;
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
-use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
+use crate::io::{Decode, DecodeError, Encode};
 use crate::sections::{
     CustomSection, DataInit, ElementInit, ExportDesc, ImportDesc, ImportPath, NameSubSection,
     RawCustomSection, Section,
@@ -56,7 +56,7 @@ impl<I: Into<u32>, T> Map<I, T> {
 
 impl<I: From<u32>, T> Map<I, T> {
     pub fn push(&mut self, value: T) -> I {
-        let index = (self.items.len() as u32).into();
+        let index = u32::try_from(self.items.len()).unwrap().into();
         self.items.push(Some(value));
         index
     }
@@ -146,7 +146,7 @@ impl<I: From<u32>, Iter: Iterator> Iterator for ConvertIndex<I, Iter> {
 
     fn next(&mut self) -> Option<(I, Iter::Item)> {
         let (index, value) = self.inner.next()?;
-        Some(((index as u32).into(), value))
+        Some((u32::try_from(index).unwrap().into(), value))
     }
 }
 
@@ -279,6 +279,7 @@ pub struct Module {
 impl TryFrom<super::module::Module> for Module {
     type Error = DecodeError;
 
+    #[allow(clippy::too_many_lines)]
     fn try_from(src: super::module::Module) -> Result<Self, DecodeError> {
         let mut dest = Self::default();
         let mut import_func_count = 0;
@@ -333,7 +334,7 @@ impl TryFrom<super::module::Module> for Module {
                                 .into_iter()
                                 .map(|ty| Function {
                                     ty,
-                                    body: MaybeImported::Local(Default::default()),
+                                    body: MaybeImported::Local(FuncBody::default()),
                                     name: None,
                                     export_name: None,
                                 }),
@@ -450,13 +451,13 @@ impl TryFrom<super::module::Module> for Module {
     }
 }
 
-impl WasmbinDecode for Module {
+impl Decode for Module {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Self::try_from(crate::module::Module::decode(r)?)
     }
 }
 
-impl WasmbinEncode for Module {
+impl Encode for Module {
     fn encode(&self, _w: &mut impl std::io::Write) -> std::io::Result<()> {
         unimplemented!()
     }

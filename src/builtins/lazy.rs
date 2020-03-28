@@ -1,6 +1,6 @@
 use crate::builtins::WasmbinCountable;
-use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
-use crate::visit::{VisitError, WasmbinVisit};
+use crate::io::{Decode, DecodeError, Encode};
+use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
 use once_cell::unsync::OnceCell;
@@ -55,7 +55,7 @@ impl<T: Default> Default for Lazy<T> {
     }
 }
 
-impl<T: WasmbinEncode> WasmbinEncode for Lazy<T> {
+impl<T: Encode> Encode for Lazy<T> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         match &self.status {
             LazyStatus::FromInput { raw, .. } => raw.encode(w),
@@ -64,7 +64,7 @@ impl<T: WasmbinEncode> WasmbinEncode for Lazy<T> {
     }
 }
 
-impl<T: WasmbinDecode> WasmbinDecode for Lazy<T> {
+impl<T: Decode> Decode for Lazy<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Vec::decode(r).map(Self::from_raw)
     }
@@ -76,7 +76,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Lazy<T> {
     }
 }
 
-fn decode_raw<T: WasmbinDecode>(mut raw: &[u8]) -> Result<T, DecodeError> {
+fn decode_raw<T: Decode>(mut raw: &[u8]) -> Result<T, DecodeError> {
     let value = T::decode(&mut raw)?;
     if !raw.is_empty() {
         return Err(DecodeError::UnrecognizedData);
@@ -84,7 +84,7 @@ fn decode_raw<T: WasmbinDecode>(mut raw: &[u8]) -> Result<T, DecodeError> {
     Ok(value)
 }
 
-impl<T: WasmbinDecode> Lazy<T> {
+impl<T: Decode> Lazy<T> {
     pub fn try_contents(&self) -> Result<&T, DecodeError> {
         match &self.status {
             LazyStatus::FromInput { raw, parsed } => parsed.get_or_try_init(|| decode_raw(raw)),
@@ -121,7 +121,7 @@ impl<T: WasmbinDecode> Lazy<T> {
     }
 }
 
-impl<T: WasmbinDecode + PartialEq> PartialEq for Lazy<T> {
+impl<T: Decode + PartialEq> PartialEq for Lazy<T> {
     fn eq(&self, other: &Self) -> bool {
         if let (LazyStatus::FromInput { raw: raw1, .. }, LazyStatus::FromInput { raw: raw2, .. }) =
             (&self.status, &other.status)
@@ -133,13 +133,13 @@ impl<T: WasmbinDecode + PartialEq> PartialEq for Lazy<T> {
         if let (Ok(value1), Ok(value2)) = (self.try_contents(), other.try_contents()) {
             return value1 == value2;
         }
-        return false;
+        false
     }
 }
 
-impl<T: WasmbinDecode + Eq> Eq for Lazy<T> {}
+impl<T: Decode + Eq> Eq for Lazy<T> {}
 
-impl<T: WasmbinDecode + Hash> Hash for Lazy<T> {
+impl<T: Decode + Hash> Hash for Lazy<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.try_contents().ok().hash(state);
     }
@@ -168,7 +168,7 @@ impl<T: Arbitrary> Arbitrary for Lazy<T> {
 
 impl<T: WasmbinCountable> WasmbinCountable for Lazy<T> {}
 
-impl<T: WasmbinDecode + WasmbinVisit> WasmbinVisit for Lazy<T> {
+impl<T: Decode + Visit> Visit for Lazy<T> {
     fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
         &'a self,
         f: &mut F,

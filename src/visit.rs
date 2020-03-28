@@ -29,6 +29,7 @@ impl<E: std::error::Error> std::error::Error for VisitError<E> {}
 pub type NeverError = !;
 
 #[cfg(not(feature = "nightly"))]
+#[allow(clippy::empty_enum)]
 pub enum NeverError {}
 
 impl From<VisitError<NeverError>> for DecodeError {
@@ -73,8 +74,8 @@ impl<E> VisitResult for Result<(), E> {
     }
 }
 
-pub use wasmbin_derive::WasmbinVisit;
-pub trait WasmbinVisit: 'static + Sized {
+pub use wasmbin_derive::Visit;
+pub trait Visit: 'static + Sized {
     fn visit<'a, T: 'static, R: VisitResult, F: FnMut(&'a T) -> R>(
         &'a self,
         mut f: F,

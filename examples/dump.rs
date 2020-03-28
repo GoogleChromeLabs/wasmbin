@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom};
-use wasmbin::io::WasmbinDecode;
+use wasmbin::io::Decode;
 use wasmbin::module::Module;
 
 fn main() {

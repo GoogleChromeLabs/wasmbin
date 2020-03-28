@@ -1,9 +1,7 @@
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
-use crate::io::{
-    DecodeError, Wasmbin, WasmbinDecode, WasmbinDecodeWithDiscriminant, WasmbinEncode,
-};
+use crate::io::{Decode, DecodeError, Encode, Wasmbin, WasmbinDecodeWithDiscriminant};
 use crate::types::BlockType;
-use crate::visit::WasmbinVisit;
+use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 
@@ -12,7 +10,7 @@ const OP_CODE_LOOP_START: u8 = 0x03;
 const OP_CODE_IF_START: u8 = 0x04;
 const OP_CODE_END: u8 = 0x0B;
 
-impl WasmbinEncode for [Instruction] {
+impl Encode for [Instruction] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         for instr in self {
             instr.encode(w)?;
@@ -21,7 +19,7 @@ impl WasmbinEncode for [Instruction] {
     }
 }
 
-impl WasmbinDecode for Vec<Instruction> {
+impl Decode for Vec<Instruction> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut res = Vec::new();
         let mut depth: usize = 0;
@@ -45,7 +43,7 @@ impl WasmbinDecode for Vec<Instruction> {
 
 pub type Expression = Vec<Instruction>;
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
@@ -55,7 +53,7 @@ pub struct MemArg {
 ///
 /// This is useful in instruction context, where we don't care
 /// about general floating number rules.
-#[derive(Wasmbin, Debug, Arbitrary, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, Clone, Visit)]
 pub struct FloatConst<F> {
     pub value: F,
 }
@@ -87,7 +85,7 @@ impl std::hash::Hash for FloatConst<f64> {
 }
 
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Instruction {
     Unreachable = 0x00,

@@ -2,7 +2,7 @@
 use libfuzzer_sys::fuzz_target;
 
 use wasmbin::module::Module;
-use wasmbin::io::WasmbinDecode;
+use wasmbin::io::Decode;
 
 fuzz_target!(|data: &[u8]| {
     // Just check that we don't crash anywhere trying to read the data.

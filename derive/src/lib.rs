@@ -61,24 +61,26 @@ fn discriminant<'v>(v: &VariantInfo<'v>) -> syn::Result<Option<Cow<'v, syn::Expr
 }
 
 fn gen_encode_discriminant(discriminant: &syn::Expr) -> proc_macro2::TokenStream {
-    quote!(<u8 as WasmbinEncode>::encode(&#discriminant, w)?)
+    quote!(<u8 as Encode>::encode(&#discriminant, w)?)
 }
 
 fn gen_decode(v: &VariantInfo) -> proc_macro2::TokenStream {
-    v.construct(|_, _| quote!(WasmbinDecode::decode(r)?))
+    v.construct(|_, _| quote!(Decode::decode(r)?))
+}
+
+fn is_repr_u8(s: &Structure) -> bool {
+    s.ast().attrs.iter().any(|attr| {
+        attr.path.is_ident("repr")
+            && attr
+                .parse_args::<syn::Ident>()
+                .map_or(false, |ident| ident == "u8")
+    })
 }
 
 fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
     let (encode_discriminant, decode) = match s.ast().data {
         syn::Data::Enum(_) => {
-            if !s.ast().attrs.iter().any(|attr| {
-                attr.path.is_ident("repr")
-                    && attr
-                        .parse_args::<syn::Ident>()
-                        .map_or(false, |ident| ident == "u8")
-            }) {
-                panic!("Wasmbin enums must use #[repr(u8)].");
-            }
+            assert!(is_repr_u8(&s), "Wasmbin enums must use #[repr(u8)].");
 
             let mut encode_discriminant = quote!();
 
@@ -138,7 +140,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                         }
                     }
 
-                    gen impl WasmbinDecode for @Self {
+                    gen impl Decode for @Self {
                         fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
                             WasmbinDecodeWithDiscriminant::decode_without_discriminant(r)
                         }
@@ -164,7 +166,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                             }
                         }
 
-                        gen impl WasmbinDecode for @Self {
+                        gen impl Decode for @Self {
                             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
                                 WasmbinDecodeWithDiscriminant::decode_without_discriminant(r)
                             }
@@ -174,7 +176,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                 None => (
                     quote! {},
                     quote! {
-                        gen impl WasmbinDecode for @Self {
+                        gen impl Decode for @Self {
                             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
                                 Ok(#decode)
                             }
@@ -187,14 +189,14 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
 
     let encode_body = s.each(|bi| {
         quote! {
-            WasmbinEncode::encode(#bi, w)?
+            Encode::encode(#bi, w)?
         }
     });
 
     s.gen_impl(quote! {
-        use crate::io::{WasmbinEncode, WasmbinDecode, WasmbinDecodeWithDiscriminant, DecodeError};
+        use crate::io::{Encode, Decode, WasmbinDecodeWithDiscriminant, DecodeError};
 
-        gen impl WasmbinEncode for @Self {
+        gen impl Encode for @Self {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
                 #encode_discriminant;
                 match *self { #encode_body }
@@ -217,20 +219,20 @@ fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
 
     let visit_children_body = s.each(|bi| {
         quote! {
-            WasmbinVisit::visit_child(#bi, f)?
+            Visit::visit_child(#bi, f)?
         }
     });
 
     let visit_children_mut_body = s.each(|bi| {
         quote! {
-            WasmbinVisit::visit_child_mut(#bi, f)?
+            Visit::visit_child_mut(#bi, f)?
         }
     });
 
     s.gen_impl(quote! {
-        use crate::visit::{WasmbinVisit, VisitError};
+        use crate::visit::{Visit, VisitError};
 
-        gen impl WasmbinVisit for @Self where Self: 'static {
+        gen impl Visit for @Self where Self: 'static {
             fn visit_children<'a, VisitT: 'static, VisitE, VisitF: FnMut(&'a VisitT) -> Result<(), VisitE>>(&'a self, f: &mut VisitF) -> Result<(), VisitError<VisitE>> {
                 match self { #visit_children_body }
                 Ok(())
@@ -277,4 +279,4 @@ pub fn wasmbin_discriminants(
 
 decl_derive!([Wasmbin, attributes(wasmbin)] => wasmbin_derive);
 decl_derive!([WasmbinCountable] => wasmbin_countable_derive);
-decl_derive!([WasmbinVisit] => wasmbin_visit_derive);
+decl_derive!([Visit] => wasmbin_visit_derive);

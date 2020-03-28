@@ -2,7 +2,7 @@
 use libfuzzer_sys::fuzz_target;
 
 use wasmbin::module::Module;
-use wasmbin::io::{WasmbinEncode, WasmbinDecode};
+use wasmbin::io::{Encode, Decode};
 
 fuzz_target!(|module: Module| {
     let mut encoded = Vec::new();

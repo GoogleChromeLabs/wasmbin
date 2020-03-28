@@ -1,13 +1,13 @@
-use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
-use crate::visit::WasmbinVisit;
+use crate::io::{Decode, DecodeError, Encode};
+use crate::visit::Visit;
 
-impl WasmbinEncode for f32 {
+impl Encode for f32 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         w.write_all(&self.to_bits().to_le_bytes())
     }
 }
 
-impl WasmbinDecode for f32 {
+impl Decode for f32 {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut bytes = [0; 4];
         r.read_exact(&mut bytes)?;
@@ -15,15 +15,15 @@ impl WasmbinDecode for f32 {
     }
 }
 
-impl WasmbinVisit for f32 {}
+impl Visit for f32 {}
 
-impl WasmbinEncode for f64 {
+impl Encode for f64 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         w.write_all(&self.to_bits().to_le_bytes())
     }
 }
 
-impl WasmbinDecode for f64 {
+impl Decode for f64 {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut bytes = [0; std::mem::size_of::<f64>()];
         r.read_exact(&mut bytes)?;
@@ -31,4 +31,4 @@ impl WasmbinDecode for f64 {
     }
 }
 
-impl WasmbinVisit for f64 {}
+impl Visit for f64 {}

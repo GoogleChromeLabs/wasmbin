@@ -22,15 +22,15 @@ pub enum DecodeError {
     UnrecognizedData,
 }
 
-pub trait WasmbinEncode {
+pub trait Encode {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()>;
 }
 
-pub trait WasmbinDecode: Sized {
+pub trait Decode: Sized {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
 }
 
-pub trait WasmbinDecodeWithDiscriminant: WasmbinDecode {
+pub trait WasmbinDecodeWithDiscriminant: Decode {
     fn maybe_decode_with_discriminant(
         discriminant: u8,
         r: &mut impl std::io::Read,

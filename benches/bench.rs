@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::fs::File;
-use wasmbin::io::{WasmbinDecode, WasmbinEncode};
+use wasmbin::io::{Decode, Encode};
 
 macro_rules! bench_group {
     ($namespace:ident as $name:ident) => {
@@ -46,6 +46,16 @@ macro_rules! bench_group {
                     b.iter(|| {
                         let f = File::open("temp.wasm").unwrap();
                         let mut f = std::io::BufReader::new(f);
+                        Module::decode(&mut f).unwrap()
+                    })
+                });
+            }
+
+            fn bench_parse_whole_buf(c: &mut Criterion) {
+                c.bench_function(concat!(stringify!($name), "::bench_parse_vec"), |b| {
+                    b.iter(|| {
+                        let f = std::fs::read("temp.wasm").unwrap();
+                        let mut f = black_box(f.as_slice());
                         Module::decode(&mut f).unwrap()
                     })
                 });

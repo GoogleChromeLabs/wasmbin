@@ -1,10 +1,10 @@
-use crate::io::{DecodeError, WasmbinDecode, WasmbinEncode};
-use crate::visit::{VisitError, WasmbinVisit};
+use crate::io::{Decode, DecodeError, Encode};
+use crate::visit::{Visit, VisitError};
 
 pub use wasmbin_derive::WasmbinCountable;
 pub trait WasmbinCountable {}
 
-impl<T: WasmbinCountable + WasmbinEncode> WasmbinEncode for [T] {
+impl<T: WasmbinCountable + Encode> Encode for [T] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         self.len().encode(w)?;
         for item in self {
@@ -14,16 +14,16 @@ impl<T: WasmbinCountable + WasmbinEncode> WasmbinEncode for [T] {
     }
 }
 
-impl<T> WasmbinEncode for Vec<T>
+impl<T> Encode for Vec<T>
 where
-    [T]: WasmbinEncode,
+    [T]: Encode,
 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         self.as_slice().encode(w)
     }
 }
 
-impl<T: WasmbinCountable + WasmbinDecode> WasmbinDecode for Vec<T> {
+impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let count = usize::decode(r)?;
         std::iter::repeat_with(|| T::decode(r))
@@ -32,7 +32,7 @@ impl<T: WasmbinCountable + WasmbinDecode> WasmbinDecode for Vec<T> {
     }
 }
 
-impl<T: WasmbinVisit> WasmbinVisit for Vec<T> {
+impl<T: Visit> Visit for Vec<T> {
     fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
         &'a self,
         f: &mut F,
@@ -54,7 +54,7 @@ impl<T: WasmbinVisit> WasmbinVisit for Vec<T> {
     }
 }
 
-impl<T: WasmbinVisit> WasmbinVisit for Option<T> {
+impl<T: Visit> Visit for Option<T> {
     fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
         &'a self,
         f: &mut F,

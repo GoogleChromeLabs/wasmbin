@@ -1,13 +1,11 @@
 use crate::builtins::WasmbinCountable;
 use crate::io::Wasmbin;
-use crate::visit::WasmbinVisit;
+use crate::visit::Visit;
 use arbitrary::Arbitrary;
 
 macro_rules! newtype_id {
     ($name:ident) => {
-        #[derive(
-            PartialEq, Eq, Clone, Copy, Wasmbin, WasmbinCountable, Arbitrary, Hash, WasmbinVisit,
-        )]
+        #[derive(PartialEq, Eq, Clone, Copy, Wasmbin, WasmbinCountable, Arbitrary, Hash, Visit)]
         #[repr(transparent)]
         pub struct $name {
             pub index: u32,

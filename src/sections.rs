@@ -3,21 +3,19 @@ use crate::builtins::WasmbinCountable;
 use crate::builtins::{Blob, RawBlob};
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
-use crate::io::{
-    DecodeError, Wasmbin, WasmbinDecode, WasmbinDecodeWithDiscriminant, WasmbinEncode,
-};
+use crate::io::{Decode, DecodeError, Encode, Wasmbin, WasmbinDecodeWithDiscriminant};
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
-use crate::visit::WasmbinVisit;
+use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ModuleNameSubSection {
     pub name: String,
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct NameAssoc<I, V> {
     pub index: I,
     pub value: V,
@@ -25,13 +23,13 @@ pub struct NameAssoc<I, V> {
 
 impl<I, V> WasmbinCountable for NameAssoc<I, V> {}
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct NameMap<I, V> {
     pub items: Vec<NameAssoc<I, V>>,
 }
 
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum NameSubSection {
     Module(Blob<String>) = 0,
@@ -39,7 +37,7 @@ pub enum NameSubSection {
     Local(Blob<NameMap<FuncId, NameMap<LocalId, String>>>) = 2,
 }
 
-impl WasmbinEncode for [NameSubSection] {
+impl Encode for [NameSubSection] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         for sub in self {
             sub.encode(w)?;
@@ -48,7 +46,7 @@ impl WasmbinEncode for [NameSubSection] {
     }
 }
 
-impl WasmbinDecode for Vec<NameSubSection> {
+impl Decode for Vec<NameSubSection> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut sub = Vec::new();
         while let Some(disc) = Option::decode(r)? {
@@ -58,7 +56,7 @@ impl WasmbinDecode for Vec<NameSubSection> {
     }
 }
 
-#[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawCustomSection {
     name: String,
 
@@ -68,13 +66,13 @@ pub struct RawCustomSection {
 
 macro_rules! define_custom_sections {
     ($($name:ident($ty:ty) = $disc:literal,)*) => {
-        #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+        #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
         pub enum CustomSection {
             $($name(Lazy<$ty>),)*
             Other(RawCustomSection),
         }
 
-        impl WasmbinEncode for CustomSection {
+        impl Encode for CustomSection {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
                 match self {
                     $(CustomSection::$name(data) => {
@@ -86,7 +84,7 @@ macro_rules! define_custom_sections {
             }
         }
 
-        impl WasmbinDecode for CustomSection {
+        impl Decode for CustomSection {
             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
                 let raw = RawCustomSection::decode(r)?;
                 Ok(match raw.name.as_str() {
@@ -103,7 +101,7 @@ define_custom_sections! {
 }
 
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ImportDesc {
     Func(TypeId) = 0x00,
@@ -112,26 +110,26 @@ pub enum ImportDesc {
     Global(GlobalType) = 0x03,
 }
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ImportPath {
     pub module: String,
     pub name: String,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Import {
     pub path: ImportPath,
     pub desc: ImportDesc,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Global {
     pub ty: GlobalType,
     pub init: Expression,
 }
 
 #[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ExportDesc {
     Func(FuncId) = 0x00,
@@ -140,56 +138,52 @@ pub enum ExportDesc {
     Global(GlobalId) = 0x03,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Export {
     pub name: String,
     pub desc: ExportDesc,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ElementInit {
     pub offset: Expression,
     pub funcs: Vec<FuncId>,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Element {
     pub table: TableId,
     pub init: ElementInit,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Locals {
     pub repeat: u32,
     pub ty: ValueType,
 }
 
 #[derive(
-    Wasmbin, WasmbinCountable, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit,
+    Wasmbin, WasmbinCountable, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit,
 )]
 pub struct FuncBody {
     pub locals: Vec<Locals>,
     pub expr: Expression,
 }
 
-#[derive(
-    Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit,
-)]
+#[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct DataInit {
     pub offset: Expression,
     #[debug(with = "custom_debug::hexbuf_str")]
     pub blob: RawBlob,
 }
 
-#[derive(
-    Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit,
-)]
+#[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Data {
     pub memory: MemId,
     pub init: DataInit,
 }
 
-pub trait Payload: WasmbinEncode + WasmbinDecode + Into<Section> {
+pub trait Payload: Encode + Decode + Into<Section> {
     const KIND: Kind;
 
     fn try_from_ref(section: &Section) -> Option<&Blob<Self>>;
@@ -206,7 +200,7 @@ macro_rules! define_sections {
         }
 
         #[wasmbin_discriminants]
-        #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+        #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
         #[repr(u8)]
         pub enum Section {
             $($name(Blob<payload::$name>) = $disc,)*
@@ -296,7 +290,7 @@ define_sections! {
     Data(Vec<super::Data>) = 11,
 }
 
-impl WasmbinEncode for [Section] {
+impl Encode for [Section] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         for section in self {
             section.encode(w)?;
@@ -305,7 +299,7 @@ impl WasmbinEncode for [Section] {
     }
 }
 
-impl WasmbinDecode for Vec<Section> {
+impl Decode for Vec<Section> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut sections = Vec::new();
         while let Some(disc) = Option::decode(r)? {

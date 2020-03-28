@@ -1,22 +1,22 @@
 use crate::builtins::Blob;
-use crate::io::{DecodeError, Wasmbin, WasmbinDecode, WasmbinEncode};
+use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::sections::{Section, StdPayload};
-use crate::visit::WasmbinVisit;
+use crate::visit::Visit;
 use arbitrary::Arbitrary;
 use std::cmp::Ordering;
 
 const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00];
 
-#[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MagicAndVersion;
 
-impl WasmbinEncode for MagicAndVersion {
+impl Encode for MagicAndVersion {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         w.write_all(&MAGIC_AND_VERSION)
     }
 }
 
-impl WasmbinDecode for MagicAndVersion {
+impl Decode for MagicAndVersion {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut magic_and_version = [0; 8];
         r.read_exact(&mut magic_and_version)?;
@@ -27,7 +27,7 @@ impl WasmbinDecode for MagicAndVersion {
     }
 }
 
-#[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, WasmbinVisit)]
+#[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Module {
     #[doc(hidden)]
     pub magic_and_version: MagicAndVersion,
@@ -36,13 +36,11 @@ pub struct Module {
 
 impl Module {
     pub fn find_std_section<T: StdPayload>(&self) -> Option<&Blob<T>> {
-        self.sections.iter().find_map(|section| section.try_as())
+        self.sections.iter().find_map(Section::try_as)
     }
 
     pub fn find_std_section_mut<T: StdPayload>(&mut self) -> Option<&mut Blob<T>> {
-        self.sections
-            .iter_mut()
-            .find_map(|section| section.try_as_mut())
+        self.sections.iter_mut().find_map(Section::try_as_mut)
     }
 
     pub fn find_or_insert_std_section<T: StdPayload>(
