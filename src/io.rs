@@ -30,7 +30,7 @@ pub trait Decode: Sized {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
 }
 
-pub trait WasmbinDecodeWithDiscriminant: Decode {
+pub trait DecodeWithDiscriminant: Decode {
     fn maybe_decode_with_discriminant(
         discriminant: u8,
         r: &mut impl std::io::Read,

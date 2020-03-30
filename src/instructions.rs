@@ -1,5 +1,5 @@
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
-use crate::io::{Decode, DecodeError, Encode, Wasmbin, WasmbinDecodeWithDiscriminant};
+use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
 use crate::types::BlockType;
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;

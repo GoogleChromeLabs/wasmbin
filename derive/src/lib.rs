@@ -115,7 +115,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                         };
                         let variant_name = v.ast().ident;
                         decode_other = quote! {
-                            if let Some(res) = WasmbinDecodeWithDiscriminant::maybe_decode_with_discriminant(discriminant, r)? {
+                            if let Some(res) = DecodeWithDiscriminant::maybe_decode_with_discriminant(discriminant, r)? {
                                 Self::#variant_name #construct
                             } else #decode_other
                         };
@@ -131,7 +131,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     }
                 },
                 quote! {
-                    gen impl WasmbinDecodeWithDiscriminant for @Self {
+                    gen impl DecodeWithDiscriminant for @Self {
                         fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
                             Ok(Some(match discriminant {
                                 #decoders
@@ -142,7 +142,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
 
                     gen impl Decode for @Self {
                         fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                            WasmbinDecodeWithDiscriminant::decode_without_discriminant(r)
+                            DecodeWithDiscriminant::decode_without_discriminant(r)
                         }
                     }
                 },
@@ -157,7 +157,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                 Some(discriminant) => (
                     gen_encode_discriminant(&discriminant),
                     quote! {
-                        gen impl WasmbinDecodeWithDiscriminant for @Self {
+                        gen impl DecodeWithDiscriminant for @Self {
                             fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
                                 Ok(match discriminant {
                                     #discriminant => Some(#decode),
@@ -168,7 +168,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
 
                         gen impl Decode for @Self {
                             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                                WasmbinDecodeWithDiscriminant::decode_without_discriminant(r)
+                                DecodeWithDiscriminant::decode_without_discriminant(r)
                             }
                         }
                     },
@@ -194,7 +194,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
     });
 
     s.gen_impl(quote! {
-        use crate::io::{Encode, Decode, WasmbinDecodeWithDiscriminant, DecodeError};
+        use crate::io::{Encode, Decode, DecodeWithDiscriminant, DecodeError};
 
         gen impl Encode for @Self {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
