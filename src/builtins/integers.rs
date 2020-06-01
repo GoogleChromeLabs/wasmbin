@@ -69,7 +69,8 @@ macro_rules! def_integer {
 
                 let mut r = std::io::Read::take(r, LIMIT);
                 let as_64 = leb128::read::$leb128_method(&mut r)?;
-                let res = Self::try_from(as_64).map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))?;
+                let res = Self::try_from(as_64)
+                    .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))?;
 
                 Ok(res)
             }
