@@ -21,8 +21,8 @@ nightly = ["criterion/real_blackbox", "wasmbin-derive/nightly"]
 
 [dev-dependencies]
 criterion = "0.3.1"
-wabt = "0.9.2"
 libtest-mimic = "0.2.0"
+wast = "17.0.0"
 
 [[bench]]
 name = "bench"
