@@ -15,6 +15,5 @@ pub mod instructions;
 pub mod io;
 pub mod module;
 pub mod sections;
-pub mod typed_module;
 pub mod types;
 pub mod visit;

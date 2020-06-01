@@ -51,16 +51,6 @@ macro_rules! bench_group {
                 });
             }
 
-            fn bench_parse_whole_buf(c: &mut Criterion) {
-                c.bench_function(concat!(stringify!($name), "::bench_parse_vec"), |b| {
-                    b.iter(|| {
-                        let f = std::fs::read("temp.wasm").unwrap();
-                        let mut f = black_box(f.as_slice());
-                        Module::decode(&mut f).unwrap()
-                    })
-                });
-            }
-
             fn bench_parse_vec(c: &mut Criterion) {
                 c.bench_function(concat!(stringify!($name), "::bench_parse_vec"), |b| {
                     let f = std::fs::read("temp.wasm").unwrap();
@@ -159,5 +149,4 @@ macro_rules! bench_group {
 }
 
 bench_group!(module as raw);
-bench_group!(typed_module as typed);
-criterion_main!(raw::benches, typed::benches);
+criterion_main!(raw::benches);
