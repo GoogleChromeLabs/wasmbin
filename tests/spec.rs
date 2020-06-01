@@ -39,7 +39,7 @@ fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn
         };
         let (line, col) = span.linecol_in(&src);
         dest.push(Test {
-            name: format!("{}:{}:{}", path.display(), line, col),
+            name: format!("{}:{}:{}", path.display(), line + 1, col + 1),
             kind: String::default(),
             is_ignored: match expect_result {
                 // Our low-level parser doesn't validate sections.
