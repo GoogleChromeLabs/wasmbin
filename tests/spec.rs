@@ -3,7 +3,7 @@ compile_error!("Tests must be run without lazy blobs.");
 
 use libtest_mimic::{run_tests, Arguments, Outcome, Test};
 use std::error::Error;
-use std::fs::{read_dir, read_to_string};
+use std::fs::{read, read_dir};
 use std::path::Path;
 use wabt::script::{Command, CommandKind, ScriptParser};
 use wasmbin::io::Decode;
@@ -41,8 +41,12 @@ struct WasmTest {
 }
 
 fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn Error>> {
-    let src = read_to_string(path)?;
-    let mut parser = ScriptParser::<f32, f64>::from_str(&src).map_err(fmt_wabt_script_error)?;
+    let src = read(path)?;
+    let mut features = wabt::Features::new();
+    features.enable_all();
+    let mut parser =
+        ScriptParser::<f32, f64>::from_source_and_name_with_features(&src, "test.wast", features)
+            .map_err(fmt_wabt_script_error)?;
     while let Some(Command { kind, line }) = parser.next().map_err(fmt_wabt_script_error)? {
         let (module, expect_result) = match kind {
             CommandKind::AssertMalformed { module, message } => (module, Err(message)),
