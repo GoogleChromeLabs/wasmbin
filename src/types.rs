@@ -1,9 +1,12 @@
 use crate::builtins::WasmbinCountable;
-use crate::io::{Decode, DecodeError, Encode, Wasmbin};
+use crate::indices::TypeId;
+use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
 use crate::visit::Visit;
-use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
+use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter};
+
+const OP_CODE_EMPTY_BLOCK: u8 = 0x40;
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
@@ -14,12 +17,46 @@ pub enum ValueType {
     F64 = 0x7C,
 }
 
-#[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum BlockType {
-    Empty = 0x40,
+    Empty,
     Value(ValueType),
+    MultiValue(TypeId),
+}
+
+impl Encode for BlockType {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        match self {
+            BlockType::Empty => OP_CODE_EMPTY_BLOCK.encode(w),
+            BlockType::Value(ty) => ty.encode(w),
+            BlockType::MultiValue(id) => i64::from(id.index).encode(w),
+        }
+    }
+}
+
+impl Decode for BlockType {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        let discriminant = u8::decode(r)?;
+        if discriminant == OP_CODE_EMPTY_BLOCK {
+            return Ok(BlockType::Empty);
+        }
+        if let Some(ty) = ValueType::maybe_decode_with_discriminant(discriminant, r)? {
+            return Ok(BlockType::Value(ty));
+        }
+        // We have already read one byte that could've been either a
+        // discriminant or a part of an s33 LEB128 specially used for
+        // type indices.
+        //
+        // To recover the LEB128 sequence, we need to chain it back.
+        let buf = [discriminant];
+        let mut r = std::io::Read::chain(&buf[..], r);
+        let as_i64 = i64::decode(&mut r)?;
+        // These indices are encoded as positive signed integers.
+        // Convert them to unsigned integers and error out if they're out of range.
+        let index = u32::try_from(as_i64).map_err(|_| leb128::read::Error::Overflow)?;
+        Ok(BlockType::MultiValue(TypeId { index }))
+    }
 }
 
 #[derive(Wasmbin, WasmbinCountable, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
