@@ -1,3 +1,6 @@
+#[cfg(feature = "lazy-blob")]
+compile_error!("Tests must be run without lazy blobs.");
+
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
 use std::error::Error;
