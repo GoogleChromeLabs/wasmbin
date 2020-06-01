@@ -15,7 +15,7 @@ fn fmt_wabt_error(err: wabt::Error) -> String {
     match err.kind() {
         ErrorKind::Nul => "string contained nul-byte".to_owned(),
         ErrorKind::Deserialize(err) => format!("failed to deserialize:\n{:#}", err),
-        ErrorKind::Parse(_) => "failed to parse".to_owned(),
+        ErrorKind::Parse(err) => format!("failed to parse:\n{:#}", err),
         ErrorKind::WriteText => "failed to write text".to_owned(),
         ErrorKind::NonUtf8Result => "result is not a valid utf8".to_owned(),
         ErrorKind::WriteBinary => "failed to write binary".to_owned(),
