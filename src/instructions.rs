@@ -266,4 +266,23 @@ pub enum Instruction {
     I64ReinterpretF64 = 0xBD,
     F32ReinterpretI32 = 0xBE,
     F64ReinterpretI64 = 0xBF,
+    I32Extend8S = 0xC0,
+    I32Extend16S = 0xC1,
+    I64Extend8S = 0xC2,
+    I64Extend16S = 0xC3,
+    I64Extend32S = 0xC4,
+    TruncSat(TruncSat) = 0xFC,
+}
+
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[repr(u8)]
+pub enum TruncSat {
+    I32F32S = 0x00,
+    I32F32U = 0x01,
+    I32F64S = 0x02,
+    I32F64U = 0x03,
+    I64F32S = 0x04,
+    I64F32U = 0x05,
+    I64F64S = 0x06,
+    I64F64U = 0x07,
 }
