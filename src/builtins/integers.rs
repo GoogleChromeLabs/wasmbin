@@ -55,35 +55,34 @@ impl Decode for Vec<u8> {
 
 impl Visit for u8 {}
 
-impl Encode for u32 {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        leb128::write::unsigned(w, u64::from(*self)).map(|_| ())
-    }
+macro_rules! def_integer {
+    ($ty:ident, $leb128_method:ident) => {
+        impl Encode for $ty {
+            fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+                leb128::write::$leb128_method(w, (*self).into()).map(|_| ())
+            }
+        }
+
+        impl Decode for $ty {
+            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                const LIMIT: u64 = (std::mem::size_of::<$ty>() * 8 / 7) as u64 + 1;
+
+                let mut r = std::io::Read::take(r, LIMIT);
+                let as_64 = leb128::read::$leb128_method(&mut r)?;
+                let res = Self::try_from(as_64).map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))?;
+
+                Ok(res)
+            }
+        }
+
+        impl Visit for $ty {}
+    };
 }
 
-impl Decode for u32 {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        u32::try_from(u64::decode(r)?)
-            .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))
-    }
-}
-
-impl Visit for u32 {}
-
-impl Encode for i32 {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        i64::from(*self).encode(w)
-    }
-}
-
-impl Decode for i32 {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        i32::try_from(i64::decode(r)?)
-            .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))
-    }
-}
-
-impl Visit for i32 {}
+def_integer!(u32, unsigned);
+def_integer!(i32, signed);
+def_integer!(u64, unsigned);
+def_integer!(i64, signed);
 
 impl Encode for usize {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -102,31 +101,3 @@ impl Decode for usize {
 }
 
 impl Visit for usize {}
-
-impl Encode for u64 {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        leb128::write::unsigned(w, *self).map(|_| ())
-    }
-}
-
-impl Decode for u64 {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Ok(leb128::read::unsigned(r)?)
-    }
-}
-
-impl Visit for u64 {}
-
-impl Encode for i64 {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        leb128::write::signed(w, *self).map(|_| ())
-    }
-}
-
-impl Decode for i64 {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Ok(leb128::read::signed(r)?)
-    }
-}
-
-impl Visit for i64 {}
