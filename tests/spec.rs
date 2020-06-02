@@ -106,18 +106,21 @@ fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let mut tests = Vec::new();
-    for file in read_dir(Path::new("tests").join("testsuite"))? {
-        let path = file?.path();
-        if !path.extension().map_or(false, |ext| ext == "wast") {
-            continue;
-        }
-        if let Err(err) = read_tests(&path, &mut tests) {
-            // If an error comes from the Wabt, ignore for now - most likely it uses a new feature we don't support yet.
-            eprintln!("Could not read test {}: {}", path.display(), err);
-        }
-    }
+    read_dir(Path::new("tests").join("testsuite"))
+        .expect("could not read the testsuite directory")
+        .map(|file| {
+            file.expect("could not iterate over the testsuite directory")
+                .path()
+        })
+        .filter(|path| path.extension().map_or(false, |ext| ext == "wast"))
+        .for_each(|path| {
+            read_tests(&path, &mut tests).unwrap_or_else(|err| {
+                // If an error comes from the Wabt, ignore for now - most likely it uses a new feature we don't support yet.
+                panic!("Could not read test {}: {}", path.display(), err);
+            });
+        });
     assert!(
         !tests.is_empty(),
         "Couldn't find any tests. Did you run `git submodule update --init`?"
