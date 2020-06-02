@@ -36,12 +36,18 @@ fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn
     let wast = parse::<Wast>(&buf).map_err(&set_err_path_text)?;
     for directive in wast.directives {
         let (span, mut module, expect_result) = match directive {
+            // Expect errors for assert_malformed on binary or AST modules.
             wast::WastDirective::AssertMalformed {
                 span,
                 module: wast::QuoteModule::Module(module),
                 message,
             } => (span, module, Err(message)),
+            // Expect successful parsing for regular AST modules.
             wast::WastDirective::Module(module) => (module.span, module, Ok(())),
+            // Counter-intuitively, expect successful parsing for modules that are supposed
+            // to error out at runtime or linking stage, too.
+            wast::WastDirective::AssertInvalid { span, module, .. }
+            | wast::WastDirective::AssertUnlinkable { span, module, .. } => (span, module, Ok(())),
             _ => {
                 // Skipping interpreted
                 continue;
