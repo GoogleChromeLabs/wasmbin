@@ -5,10 +5,20 @@ use libtest_mimic::{run_tests, Arguments, Outcome, Test};
 use std::error::Error;
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
-use wasmbin::io::Decode;
+use wasmbin::io::{Decode, Encode};
 use wasmbin::module::Module;
 use wast::parser::{parse, ParseBuffer};
 use wast::Wast;
+
+const IGNORED_ERRORS: &[&str] = &[
+    // We don't perform cross-section analysis.
+    "function and code section have inconsistent lengths",
+    // This error is actually from a test that checks for duplicate section.
+    // Same as above, we don't perform cross-section analysis.
+    "junk after last section",
+    // We allow non-zero table and memory IDs already.
+    "zero flag expected",
+];
 
 struct WasmTest {
     module: Vec<u8>,
@@ -42,11 +52,8 @@ fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn
             name: format!("{}:{}:{}", path.display(), line + 1, col + 1),
             kind: String::default(),
             is_ignored: match expect_result {
-                // Our low-level parser doesn't validate sections.
-                Err("function and code section have inconsistent lengths") => true,
-                // We intentionally read future table/memory IDs.
-                Err("zero flag expected") => true,
-                _ => false,
+                Ok(()) => false,
+                Err(err) => IGNORED_ERRORS.contains(&err),
             },
             is_bench: false,
             data: WasmTest {
@@ -54,6 +61,47 @@ fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn
                 expect_result: expect_result.map_err(|err| err.to_owned()),
             },
         });
+    }
+    Ok(())
+}
+
+fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
+    let module = match (
+        Module::decode(&mut test.module.as_slice()),
+        &test.expect_result,
+    ) {
+        (Ok(_), Err(err)) => {
+            return Err(format!(
+                "Expected an invalid module definition with an error: {}",
+                err
+            )
+            .into());
+        }
+        (Err(err), Ok(())) => {
+            return Err(format!(
+                "Expected a valid module definition, but got an error:\n{:#}",
+                err
+            )
+            .into());
+        }
+        (Ok(module), Ok(())) => module,
+        (Err(_), Err(_)) => return Ok(()),
+    };
+    let mut out = Vec::new();
+    module.encode(&mut out)?;
+    if out != test.module {
+        // In the rare case that binary representation doesn't match, it
+        // might be because the test uses longer LEB128 form than
+        // required. Verify that at least decoding it back produces the
+        // same module.
+        let module2 = Module::decode(&mut out.as_slice())?;
+        if module != module2 {
+            return Err(format!(
+                "Roundtrip mismatch. Old: {:#?}\nNew: {:#?}",
+                module, module2
+            )
+            .into());
+        }
     }
     Ok(())
 }
@@ -75,23 +123,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         "Couldn't find any tests. Did you run `git submodule update --init`?"
     );
     run_tests(&Arguments::from_args(), tests, |test| {
-        match (
-            Module::decode(&mut test.data.module.as_slice()),
-            &test.data.expect_result,
-        ) {
-            (Ok(_), Err(err)) => Outcome::Failed {
-                msg: Some(format!(
-                    "Expected an invalid module definition with an error: {}",
-                    err
-                )),
+        match run_test(&test.data) {
+            Ok(()) => Outcome::Passed,
+            Err(err) => Outcome::Failed {
+                msg: Some(err.to_string()),
             },
-            (Err(err), Ok(())) => Outcome::Failed {
-                msg: Some(format!(
-                    "Expected a valid module definition, but got an error:\n{:#}",
-                    err
-                )),
-            },
-            _ => Outcome::Passed,
         }
     })
     .exit()
