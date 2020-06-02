@@ -1,6 +1,3 @@
-#[cfg(feature = "lazy-blob")]
-compile_error!("Tests must be run without lazy blobs.");
-
 use libtest_mimic::{run_tests, Arguments, Outcome, Test};
 use std::error::Error;
 use std::fs::{read_dir, read_to_string};
@@ -59,7 +56,7 @@ fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn
             kind: String::default(),
             is_ignored: match expect_result {
                 Ok(()) => false,
-                Err(err) => IGNORED_ERRORS.contains(&err),
+                Err(err) => cfg!(feature = "lazy-blob") || IGNORED_ERRORS.contains(&err),
             },
             is_bench: false,
             data: WasmTest {
@@ -113,6 +110,10 @@ fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
 }
 
 fn main() {
+    if cfg!(feature = "lazy-blob") {
+        eprintln!("Warning: tests are being run in a lazy mode and will be incomplete.");
+    }
+
     let mut tests = Vec::new();
     read_dir(Path::new("tests").join("testsuite"))
         .expect("could not read the testsuite directory")
