@@ -15,6 +15,8 @@ const IGNORED_ERRORS: &[&str] = &[
     "junk after last section",
     // We allow non-zero table and memory IDs already.
     "zero flag expected",
+    // We don't perform full function analysis either.
+    "too many locals",
 ];
 
 struct WasmTest {
