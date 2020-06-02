@@ -29,8 +29,8 @@ fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn
         err.set_text(&src);
         err
     };
-    let buf = ParseBuffer::new(&src).map_err(&set_err_path_text)?;
-    let wast = parse::<Wast>(&buf).map_err(&set_err_path_text)?;
+    let buf = ParseBuffer::new(&src).map_err(set_err_path_text)?;
+    let wast = parse::<Wast>(&buf).map_err(set_err_path_text)?;
     for directive in wast.directives {
         let (span, mut module, expect_result) = match directive {
             // Expect errors for assert_malformed on binary or AST modules.
@@ -124,7 +124,6 @@ fn main() {
         .filter(|path| path.extension().map_or(false, |ext| ext == "wast"))
         .for_each(|path| {
             read_tests(&path, &mut tests).unwrap_or_else(|err| {
-                // If an error comes from the Wabt, ignore for now - most likely it uses a new feature we don't support yet.
                 panic!("Could not read test {}: {}", path.display(), err);
             });
         });
