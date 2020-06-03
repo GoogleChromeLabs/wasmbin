@@ -53,24 +53,6 @@ impl<T: Decode> Blob<T> {
     }
 }
 
-#[cfg(not(feature = "lazy-blob"))]
-impl<T: Decode> Blob<T> {
-    pub fn contents(&self) -> &T {
-        self.try_contents()
-            .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() })
-    }
-
-    pub fn contents_mut(&mut self) -> &mut T {
-        self.try_contents_mut()
-            .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() })
-    }
-
-    pub fn into_contents(self) -> T {
-        self.try_into_contents()
-            .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() })
-    }
-}
-
 impl<T: Decode + std::fmt::Debug> std::fmt::Debug for Blob<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.write_str("Blob(")?;
