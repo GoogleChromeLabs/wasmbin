@@ -4,6 +4,8 @@ use crate::builtins::{Blob, RawBlob};
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
+#[cfg(feature = "bulk-memory-operations")]
+use crate::types::ElemType;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
@@ -145,16 +147,77 @@ pub struct Export {
     pub desc: ExportDesc,
 }
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct ElementInit {
-    pub offset: Expression,
-    pub funcs: Vec<FuncId>,
+#[cfg(feature = "bulk-memory-operations")]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[repr(u8)]
+pub enum ElemKind {
+    FuncRef = 0x00,
 }
 
+#[cfg(feature = "bulk-memory-operations")]
+#[wasmbin_discriminants]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[repr(u8)]
+pub enum ElemInstruction {
+    RefNull(ElemType) = 0xD0,
+    RefFunc(FuncId) = 0xD2,
+}
+
+#[cfg(feature = "bulk-memory-operations")]
+#[derive(WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+pub struct ElemExpr {
+    pub instr: ElemInstruction,
+}
+
+#[cfg(feature = "bulk-memory-operations")]
+impl Encode for ElemExpr {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        self.instr.encode(w)?;
+        crate::instructions::OP_CODE_END.encode(w)
+    }
+}
+
+#[cfg(feature = "bulk-memory-operations")]
+impl Decode for ElemExpr {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        let instr = ElemInstruction::decode(r)?;
+        match u8::decode(r)? {
+            crate::instructions::OP_CODE_END => Ok(Self { instr }),
+            discriminant => Err(DecodeError::UnsupportedDiscriminant { discriminant }),
+        }
+    }
+}
+
+#[wasmbin_discriminants]
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct Element {
-    pub table: TableId,
-    pub init: ElementInit,
+#[repr(u8)]
+pub enum Element {
+    Active {
+        offset: Expression,
+        funcs: Vec<FuncId>,
+    } = 0x00,
+    #[cfg(feature = "bulk-memory-operations")]
+    Passive { kind: ElemKind, funcs: Vec<FuncId> } = 0x01,
+    #[cfg(feature = "bulk-memory-operations")]
+    ActiveWithTable {
+        table: TableId,
+        offset: Expression,
+        funcs: Vec<FuncId>,
+    } = 0x02,
+    #[cfg(feature = "bulk-memory-operations")]
+    ActiveWithExprs {
+        offset: Expression,
+        exprs: Vec<ElemExpr>,
+    } = 0x04,
+    #[cfg(feature = "bulk-memory-operations")]
+    PassiveWithExprs { ty: ElemType, exprs: Vec<ElemExpr> } = 0x05,
+    #[cfg(feature = "bulk-memory-operations")]
+    ActiveWithTableAndExprs {
+        table: TableId,
+        offset: Expression,
+        ty: ElemType,
+        exprs: Vec<ElemExpr>,
+    } = 0x06,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
@@ -171,17 +234,27 @@ pub struct FuncBody {
     pub expr: Expression,
 }
 
-#[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct DataInit {
-    pub offset: Expression,
-    #[debug(with = "custom_debug::hexbuf_str")]
-    pub blob: RawBlob,
+#[wasmbin_discriminants]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[repr(u8)]
+pub enum DataInit {
+    Active {
+        offset: Expression,
+    } = 0x00,
+    #[cfg(feature = "bulk-memory-operations")]
+    Passive = 0x01,
+    #[cfg(feature = "bulk-memory-operations")]
+    ActiveWithMemory {
+        memory: MemId,
+        offset: Expression,
+    } = 0x02,
 }
 
 #[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Data {
-    pub memory: MemId,
     pub init: DataInit,
+    #[debug(with = "custom_debug::hexbuf_str")]
+    pub blob: RawBlob,
 }
 
 pub trait Payload: Encode + Decode + Into<Section> {
@@ -195,22 +268,22 @@ pub trait Payload: Encode + Decode + Into<Section> {
 pub trait StdPayload: Payload {}
 
 macro_rules! define_sections {
-    ($($name:ident($ty:ty) = $disc:literal,)*) => {
+    ($($(# $attr:tt)? $name:ident($ty:ty) = $disc:literal,)*) => {
         pub mod payload {
-            $(pub type $name = $ty;)*
+            $($(# $attr)? pub type $name = $ty;)*
         }
 
         #[wasmbin_discriminants]
         #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
         #[repr(u8)]
         pub enum Section {
-            $($name(Blob<payload::$name>) = $disc,)*
+            $($(# $attr)? $name(Blob<payload::$name>) = $disc,)*
         }
 
-        #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
+        #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
         #[repr(u8)]
         pub enum Kind {
-            $($name = $disc,)*
+            $($(# $attr)? $name = $disc,)*
         }
 
         impl TryFrom<u8> for Kind {
@@ -218,13 +291,45 @@ macro_rules! define_sections {
 
             fn try_from(discriminant: u8) -> Result<Kind, u8> {
                 Ok(match discriminant {
-                    $($disc => Kind::$name,)*
+                    $($(# $attr)? $disc => Kind::$name,)*
                     _ => return Err(discriminant),
                 })
             }
         }
 
-        $(
+        impl Ord for Kind {
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                // Some new sections might have larger discriminants,
+                // but be ordered logically between those will smaller
+                // discriminants.
+                //
+                // To compare their Kinds in a defined order, we need an
+                // intermediate enum without discriminants.
+                #[derive(PartialEq, Eq, PartialOrd, Ord)]
+                #[repr(u8)]
+                enum OrderedRepr {
+                    $($(# $attr)? $name,)*
+                }
+
+                impl From<Kind> for OrderedRepr {
+                    fn from(kind: Kind) -> Self {
+                        match kind {
+                            $($(# $attr)? Kind::$name => Self::$name,)*
+                        }
+                    }
+                }
+
+                OrderedRepr::from(*self).cmp(&OrderedRepr::from(*other))
+            }
+        }
+
+        impl PartialOrd for Kind {
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        $($(# $attr)? const _: () = {
             impl From<Blob<payload::$name>> for Section {
                 fn from(value: Blob<payload::$name>) -> Self {
                     Section::$name(value)
@@ -261,12 +366,12 @@ macro_rules! define_sections {
                     }
                 }
             }
-        )*
+        };)*
 
         impl Section {
             pub fn kind(&self) -> Kind {
                 match self {
-                    $(Section::$name(_) => Kind::$name,)*
+                    $($(# $attr)? Section::$name(_) => Kind::$name,)*
                 }
             }
 
@@ -279,11 +384,11 @@ macro_rules! define_sections {
             }
         }
 
-        define_sections!(@std $($name)*);
+        define_sections!(@std $($(# $attr)? $name)*);
     };
 
-    (@std $ignore_custom:ident $($name:ident)*) => {
-        $(impl StdPayload for payload::$name {})*
+    (@std $ignore_custom:ident $($(# $attr:tt)? $name:ident)*) => {
+        $($(# $attr)? impl StdPayload for payload::$name {})*
     };
 }
 
@@ -298,6 +403,8 @@ define_sections! {
     Export(Vec<super::Export>) = 7,
     Start(super::FuncId) = 8,
     Element(Vec<super::Element>) = 9,
+    #[cfg(feature = "bulk-memory-operations")]
+    DataCount(u32) = 12,
     Code(Vec<super::Blob<super::FuncBody>>) = 10,
     Data(Vec<super::Data>) = 11,
 }
@@ -317,12 +424,12 @@ impl Decode for Vec<Section> {
         let mut last_kind = Kind::Custom;
         while let Some(disc) = Option::decode(r)? {
             match Kind::try_from(disc) {
-                Ok(Kind::Custom) | Err(_) => {},
+                Ok(Kind::Custom) | Err(_) => {}
                 Ok(kind) => {
                     if kind <= last_kind {
                         return Err(DecodeError::SectionOutOfOrder {
                             prev: last_kind,
-                            current: kind
+                            current: kind,
                         });
                     }
                     last_kind = kind;

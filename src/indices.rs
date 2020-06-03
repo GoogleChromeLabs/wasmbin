@@ -43,3 +43,9 @@ newtype_id!(MemId);
 newtype_id!(GlobalId);
 newtype_id!(LocalId);
 newtype_id!(LabelId);
+
+#[cfg(feature = "bulk-memory-operations")]
+newtype_id!(ElemId);
+
+#[cfg(feature = "bulk-memory-operations")]
+newtype_id!(DataId);

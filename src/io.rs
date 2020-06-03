@@ -25,7 +25,7 @@ pub enum DecodeError {
     SectionOutOfOrder {
         current: crate::sections::Kind,
         prev: crate::sections::Kind,
-    }
+    },
 }
 
 pub trait Encode {

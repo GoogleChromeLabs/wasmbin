@@ -1,3 +1,5 @@
+#[cfg(feature = "bulk-memory-operations")]
+use crate::indices::{DataId, ElemId};
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
 use crate::types::BlockType;
@@ -8,7 +10,7 @@ use arbitrary::Arbitrary;
 const OP_CODE_BLOCK_START: u8 = 0x02;
 const OP_CODE_LOOP_START: u8 = 0x03;
 const OP_CODE_IF_START: u8 = 0x04;
-const OP_CODE_END: u8 = 0x0B;
+pub(crate) const OP_CODE_END: u8 = 0x0B;
 
 impl Encode for [Instruction] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -278,18 +280,45 @@ pub enum Instruction {
     I64Extend8S = 0xC2,
     I64Extend16S = 0xC3,
     I64Extend32S = 0xC4,
-    TruncSat(TruncSat) = 0xFC,
+    Misc(Misc) = 0xFC,
 }
 
+#[cfg_attr(feature = "bulk-memory-operations", wasmbin_discriminants)]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
-pub enum TruncSat {
-    I32F32S = 0x00,
-    I32F32U = 0x01,
-    I32F64S = 0x02,
-    I32F64U = 0x03,
-    I64F32S = 0x04,
-    I64F32U = 0x05,
-    I64F64S = 0x06,
-    I64F64U = 0x07,
+pub enum Misc {
+    I32TruncSatF32S = 0x00,
+    I32TruncSatF32U = 0x01,
+    I32TruncSatF64S = 0x02,
+    I32TruncSatF64U = 0x03,
+    I64TruncSatF32S = 0x04,
+    I64TruncSatF32U = 0x05,
+    I64TruncSatF64S = 0x06,
+    I64TruncSatF64U = 0x07,
+    #[cfg(feature = "bulk-memory-operations")]
+    MemoryInit {
+        data: DataId,
+        mem: MemId,
+    } = 0x08,
+    #[cfg(feature = "bulk-memory-operations")]
+    DataDrop(DataId) = 0x09,
+    #[cfg(feature = "bulk-memory-operations")]
+    MemoryCopy {
+        dest: MemId,
+        src: MemId,
+    } = 0x0A,
+    #[cfg(feature = "bulk-memory-operations")]
+    MemoryFill(MemId) = 0x0B,
+    #[cfg(feature = "bulk-memory-operations")]
+    TableInit {
+        elem: ElemId,
+        table: TableId,
+    } = 0x0C,
+    #[cfg(feature = "bulk-memory-operations")]
+    ElemDrop(ElemId) = 0x0D,
+    #[cfg(feature = "bulk-memory-operations")]
+    TableCopy {
+        dest: MemId,
+        src: MemId,
+    } = 0x0E,
 }

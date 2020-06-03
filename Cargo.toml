@@ -19,6 +19,7 @@ default = ["lazy-blob"]
 lazy-blob = []
 nightly = ["criterion/real_blackbox", "wasmbin-derive/nightly"]
 tail-call = []
+bulk-memory-operations = []
 
 [dev-dependencies]
 criterion = "0.3.1"

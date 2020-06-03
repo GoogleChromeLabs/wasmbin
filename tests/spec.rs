@@ -9,6 +9,8 @@ use wast::Wast;
 const IGNORED_ERRORS: &[&str] = &[
     // We don't perform cross-section analysis.
     "function and code section have inconsistent lengths",
+    "data count section required",
+    "data count and data section have inconsistent lengths",
     // We allow non-zero table and memory IDs already.
     "zero flag expected",
     // We don't perform full function analysis either.
