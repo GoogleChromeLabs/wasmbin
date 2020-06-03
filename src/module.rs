@@ -39,8 +39,9 @@ impl Module {
         Self::decode(&mut r)
     }
 
-    pub fn encode_into(&self, mut w: impl std::io::Write) -> std::io::Result<()> {
-        self.encode(&mut w)
+    pub fn encode_into<W: std::io::Write>(&self, mut w: W) -> std::io::Result<W> {
+        self.encode(&mut w)?;
+        Ok(w)
     }
 
     pub fn find_std_section<T: StdPayload>(&self) -> Option<&Blob<T>> {

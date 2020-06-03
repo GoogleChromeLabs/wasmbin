@@ -60,8 +60,7 @@ fn bench_parse_deep_module(c: &mut Criterion) {
         concat!(stringify!($name), "::bench_parse_deep_module"),
         |b| {
             assert!(cfg!(not(feature = "lazy-blob")));
-            let mut f = Vec::new();
-            deep_module().encode_into(&mut f).unwrap();
+            let f = deep_module().encode_into(Vec::new()).unwrap();
             b.iter(|| {
                 let f = black_box(f.as_slice());
                 Module::decode_from(f).unwrap()
@@ -79,9 +78,8 @@ fn bench_write(c: &mut Criterion) {
     c.bench_function(concat!(stringify!($name), "::bench_write"), |b| {
         let m = read_module();
         b.iter(|| {
-            let mut f = File::create("temp.out.wasm").unwrap();
-            black_box(&m).encode_into(&mut f).unwrap();
-            f
+            let f = File::create("temp.out.wasm").unwrap();
+            black_box(&m).encode_into(f).unwrap()
         })
     });
 }
@@ -91,9 +89,8 @@ fn bench_write_buf(c: &mut Criterion) {
         let m = read_module();
         b.iter(|| {
             let f = File::create("temp.out.wasm").unwrap();
-            let mut f = std::io::BufWriter::new(f);
-            black_box(&m).encode_into(&mut f).unwrap();
-            f
+            let f = std::io::BufWriter::new(f);
+            black_box(&m).encode_into(f).unwrap()
         })
     });
 }
@@ -101,11 +98,7 @@ fn bench_write_buf(c: &mut Criterion) {
 fn bench_write_vec(c: &mut Criterion) {
     c.bench_function(concat!(stringify!($name), "::bench_write_vec"), |b| {
         let m = read_module();
-        b.iter(|| {
-            let mut f = Vec::new();
-            black_box(&m).encode_into(&mut f).unwrap();
-            f
-        })
+        b.iter(|| black_box(&m).encode_into(Vec::new()).unwrap())
     });
 }
 
@@ -115,11 +108,7 @@ fn bench_write_deep_module(c: &mut Criterion) {
         |b| {
             assert!(cfg!(not(feature = "lazy-blob")));
             let m = deep_module();
-            b.iter(|| {
-                let mut f = Vec::new();
-                black_box(&m).encode_into(&mut f).unwrap();
-                f
-            })
+            b.iter(|| black_box(&m).encode_into(Vec::new()).unwrap())
         },
     );
 }

@@ -91,8 +91,7 @@ fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
         (Ok(module), Ok(())) => module,
         (Err(_), Err(_)) => return Ok(()),
     };
-    let mut out = Vec::new();
-    module.encode_into(&mut out)?;
+    let out = module.encode_into(Vec::new())?;
     if out != test.module {
         // In the rare case that binary representation doesn't match, it
         // might be because the test uses longer LEB128 form than
