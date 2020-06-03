@@ -35,6 +35,14 @@ pub struct Module {
 }
 
 impl Module {
+    pub fn decode_from(mut r: impl std::io::Read) -> Result<Module, DecodeError> {
+        Self::decode(&mut r)
+    }
+
+    pub fn encode_into(&self, mut w: impl std::io::Write) -> std::io::Result<()> {
+        self.encode(&mut w)
+    }
+
     pub fn find_std_section<T: StdPayload>(&self) -> Option<&Blob<T>> {
         self.sections.iter().find_map(Section::try_as)
     }

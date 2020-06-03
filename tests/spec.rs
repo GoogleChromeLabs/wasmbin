@@ -2,8 +2,7 @@ use libtest_mimic::{run_tests, Arguments, Outcome, Test};
 use std::error::Error;
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
-use wasmbin::io::{Decode, Encode};
-use wasmbin::module::Module;
+use wasmbin::Module;
 use wast::parser::{parse, ParseBuffer};
 use wast::Wast;
 
@@ -72,7 +71,7 @@ fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn
 
 fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
     let module = match (
-        Module::decode(&mut test.module.as_slice()),
+        Module::decode_from(test.module.as_slice()),
         &test.expect_result,
     ) {
         (Ok(_), Err(err)) => {
@@ -93,13 +92,13 @@ fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
         (Err(_), Err(_)) => return Ok(()),
     };
     let mut out = Vec::new();
-    module.encode(&mut out)?;
+    module.encode_into(&mut out)?;
     if out != test.module {
         // In the rare case that binary representation doesn't match, it
         // might be because the test uses longer LEB128 form than
         // required. Verify that at least decoding it back produces the
         // same module.
-        let module2 = Module::decode(&mut out.as_slice())?;
+        let module2 = Module::decode_from(out.as_slice())?;
         if module != module2 {
             return Err(format!(
                 "Roundtrip mismatch. Old: {:#?}\nNew: {:#?}",
