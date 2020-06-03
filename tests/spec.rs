@@ -94,6 +94,7 @@ fn read_all_tests(path: &Path) -> Result<Vec<Test<WasmTest>>, Box<dyn Error>> {
     }
 
     read_proposal_tests!("tail-call");
+    read_proposal_tests!("bulk-memory-operations");
 
     if tests.is_empty() {
         return Err("Couldn't find any tests. Did you run `git submodule update --init`?".into());
@@ -103,10 +104,8 @@ fn read_all_tests(path: &Path) -> Result<Vec<Test<WasmTest>>, Box<dyn Error>> {
 }
 
 fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
-    let module = match (
-        Module::decode_from(test.module.as_slice()),
-        &test.expect_result,
-    ) {
+    let mut slice = test.module.as_slice();
+    let module = match (Module::decode_from(&mut slice), &test.expect_result) {
         (Ok(_), Err(err)) => {
             return Err(format!(
                 "Expected an invalid module definition with an error: {}",
@@ -116,7 +115,9 @@ fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
         }
         (Err(err), Ok(())) => {
             return Err(format!(
-                "Expected a valid module definition, but got an error:\n{:#}",
+                "Expected a valid module definition, but got an error\nParsed part: {:02X?}\nUnparsed part: {:02X?}\nError: {:#}",
+                &test.module[..test.module.len() - slice.len()],
+                slice,
                 err
             )
             .into());
