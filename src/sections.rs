@@ -32,7 +32,7 @@ pub struct NameMap<I, V> {
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum NameSubSection {
-    Module(Blob<String>) = 0,
+    Module(RawBlob<String>) = 0,
     Func(Blob<NameMap<FuncId, String>>) = 1,
     Local(Blob<NameMap<FuncId, NameMap<LocalId, String>>>) = 2,
 }
