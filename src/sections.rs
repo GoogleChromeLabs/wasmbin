@@ -9,6 +9,7 @@ use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
+use std::convert::TryFrom;
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ModuleNameSubSection {
@@ -212,6 +213,17 @@ macro_rules! define_sections {
             $($name = $disc,)*
         }
 
+        impl TryFrom<u8> for Kind {
+            type Error = u8;
+
+            fn try_from(discriminant: u8) -> Result<Kind, u8> {
+                Ok(match discriminant {
+                    $($disc => Kind::$name,)*
+                    _ => return Err(discriminant),
+                })
+            }
+        }
+
         $(
             impl From<Blob<payload::$name>> for Section {
                 fn from(value: Blob<payload::$name>) -> Self {
@@ -302,7 +314,20 @@ impl Encode for [Section] {
 impl Decode for Vec<Section> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut sections = Vec::new();
+        let mut last_kind = Kind::Custom;
         while let Some(disc) = Option::decode(r)? {
+            match Kind::try_from(disc) {
+                Ok(Kind::Custom) | Err(_) => {},
+                Ok(kind) => {
+                    if kind <= last_kind {
+                        return Err(DecodeError::SectionOutOfOrder {
+                            prev: last_kind,
+                            current: kind
+                        });
+                    }
+                    last_kind = kind;
+                }
+            }
             sections.push(Section::decode_with_discriminant(disc, r)?);
         }
         Ok(sections)

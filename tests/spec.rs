@@ -9,9 +9,6 @@ use wast::Wast;
 const IGNORED_ERRORS: &[&str] = &[
     // We don't perform cross-section analysis.
     "function and code section have inconsistent lengths",
-    // This error is actually from a test that checks for duplicate section.
-    // Same as above, we don't perform cross-section analysis.
-    "junk after last section",
     // We allow non-zero table and memory IDs already.
     "zero flag expected",
     // We don't perform full function analysis either.

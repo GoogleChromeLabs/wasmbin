@@ -20,6 +20,12 @@ pub enum DecodeError {
 
     #[error("Unrecognized data")]
     UnrecognizedData,
+
+    #[error("Section out of order: {current:?} after {prev:?}")]
+    SectionOutOfOrder {
+        current: crate::sections::Kind,
+        prev: crate::sections::Kind,
+    }
 }
 
 pub trait Encode {
