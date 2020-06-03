@@ -2,6 +2,7 @@ use crate::builtins::WasmbinCountable;
 use crate::indices::TypeId;
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
 use crate::visit::Visit;
+use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter};
@@ -101,14 +102,12 @@ impl Debug for Limits {
     }
 }
 
+#[wasmbin_discriminants]
 #[derive(Wasmbin)]
 #[repr(u8)]
 enum LimitsRepr {
-    #[wasmbin(discriminant = 0x00)]
-    Min { min: u32 },
-
-    #[wasmbin(discriminant = 0x01)]
-    MinMax { min: u32, max: u32 },
+    Min { min: u32 } = 0x00,
+    MinMax { min: u32, max: u32 } = 0x01,
 }
 
 impl Encode for Limits {
