@@ -84,6 +84,12 @@ impl std::hash::Hash for FloatConst<f64> {
     }
 }
 
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+pub struct CallIndirect {
+    ty: TypeId,
+    table: TableId,
+}
+
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
@@ -103,10 +109,11 @@ pub enum Instruction {
     } = 0x0E,
     Return = 0x0F,
     Call(FuncId) = 0x10,
-    CallIndirect {
-        ty: TypeId,
-        table: TableId,
-    } = 0x11,
+    CallIndirect(CallIndirect) = 0x11,
+    #[cfg(feature = "tail-call")]
+    ReturnCall(FuncId) = 0x12,
+    #[cfg(feature = "tail-call")]
+    ReturnCallIndirect(CallIndirect) = 0x13,
     Drop = 0x1A,
     Select = 0x1B,
     LocalGet(LocalId) = 0x20,

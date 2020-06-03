@@ -23,7 +23,7 @@ struct WasmTest {
     expect_result: Result<(), String>,
 }
 
-fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn Error>> {
+fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn Error>> {
     let src = read_to_string(path)?;
     let set_err_path_text = |mut err: wast::Error| {
         err.set_path(path);
@@ -67,6 +67,40 @@ fn read_tests(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn
         });
     }
     Ok(())
+}
+
+fn read_tests_from_dir(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(), Box<dyn Error>> {
+    for file in read_dir(path)? {
+        let path = file?.path();
+        if path.extension().map_or(false, |ext| ext == "wast") {
+            read_tests_from_file(&path, dest).map_err(|err| {
+                format!("could not read tests from file {}: {}", path.display(), err)
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn read_all_tests(path: &Path) -> Result<Vec<Test<WasmTest>>, Box<dyn Error>> {
+    let mut tests = Vec::new();
+    read_tests_from_dir(path, &mut tests)?;
+    let proposals_dir = path.join("proposals");
+
+    macro_rules! read_proposal_tests {
+        ($name:literal) => {
+            if cfg!(feature = $name) {
+                read_tests_from_dir(&proposals_dir.join($name), &mut tests)?;
+            }
+        };
+    }
+
+    read_proposal_tests!("tail-call");
+
+    if tests.is_empty() {
+        return Err("Couldn't find any tests. Did you run `git submodule update --init`?".into());
+    }
+
+    Ok(tests)
 }
 
 fn run_test(test: &WasmTest) -> Result<(), Box<dyn Error>> {
@@ -113,24 +147,9 @@ fn main() {
     if cfg!(feature = "lazy-blob") {
         eprintln!("Warning: tests are being run in a lazy mode and will be incomplete.");
     }
-
-    let mut tests = Vec::new();
-    read_dir(Path::new("tests").join("testsuite"))
-        .expect("could not read the testsuite directory")
-        .map(|file| {
-            file.expect("could not iterate over the testsuite directory")
-                .path()
-        })
-        .filter(|path| path.extension().map_or(false, |ext| ext == "wast"))
-        .for_each(|path| {
-            read_tests(&path, &mut tests).unwrap_or_else(|err| {
-                panic!("Could not read test {}: {}", path.display(), err);
-            });
-        });
-    assert!(
-        !tests.is_empty(),
-        "Couldn't find any tests. Did you run `git submodule update --init`?"
-    );
+    let tests = read_all_tests(&Path::new("tests").join("testsuite")).unwrap_or_else(|err| {
+        panic!("{}", err);
+    });
     run_tests(&Arguments::from_args(), tests, |test| {
         match run_test(&test.data) {
             Ok(()) => Outcome::Passed,

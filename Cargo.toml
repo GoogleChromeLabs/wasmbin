@@ -18,6 +18,7 @@ arbitrary = { version = "0.4.1", features = ["derive"] }
 default = ["lazy-blob"]
 lazy-blob = []
 nightly = ["criterion/real_blackbox", "wasmbin-derive/nightly"]
+tail-call = []
 
 [dev-dependencies]
 criterion = "0.3.1"
