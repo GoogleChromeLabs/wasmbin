@@ -12,8 +12,8 @@ pub enum DecodeError {
     #[error("{0}")]
     Utf8(#[from] std::string::FromUtf8Error),
 
-    #[error("Could not recognise discriminant 0x{discriminant:X}")]
-    UnsupportedDiscriminant { discriminant: i128 },
+    #[error("Could not recognise discriminant 0x{discriminant:X} for type {ty}")]
+    UnsupportedDiscriminant { ty: &'static str, discriminant: i128 },
 
     #[error("Invalid module magic signature [{actual:02X?}]")]
     InvalidMagic { actual: [u8; 8] },
@@ -62,6 +62,7 @@ macro_rules! encode_decode_as {
 }
 
 pub trait DecodeWithDiscriminant: Decode {
+    const NAME: &'static str;
     type Discriminant: Decode + Copy + Into<i128>;
 
     fn maybe_decode_with_discriminant(
@@ -75,6 +76,7 @@ pub trait DecodeWithDiscriminant: Decode {
     ) -> Result<Self, DecodeError> {
         Self::maybe_decode_with_discriminant(discriminant, r)?.ok_or_else(|| {
             DecodeError::UnsupportedDiscriminant {
+                ty: Self::NAME,
                 discriminant: discriminant.into(),
             }
         })

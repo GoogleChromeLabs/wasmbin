@@ -346,6 +346,7 @@ pub mod simd {
                     let value = u8::decode(r)?;
                     if value >= $num {
                         return Err(DecodeError::UnsupportedDiscriminant {
+                            ty: stringify!($name),
                             discriminant: value.into(),
                         });
                     }
@@ -379,6 +380,7 @@ pub mod simd {
             for &b in &bytes {
                 if b >= 32 {
                     return Err(DecodeError::UnsupportedDiscriminant {
+                        ty: "LaneIdx32",
                         discriminant: b.into(),
                     });
                 }
