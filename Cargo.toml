@@ -26,6 +26,8 @@ simd = []
 criterion = "0.3.1"
 libtest-mimic = "0.2.0"
 wast = "17.0.0"
+fehler = "1.0.0"
+anyhow = "1.0.31"
 
 [[bench]]
 name = "bench"
