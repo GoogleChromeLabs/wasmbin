@@ -1,4 +1,4 @@
-use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode};
+use crate::io::{Decode, DecodeError, Encode};
 use crate::visit::Visit;
 use std::convert::TryFrom;
 
@@ -33,15 +33,6 @@ impl Decode for Option<u8> {
                 Err(err) => Err(DecodeError::Io(err)),
             };
         }
-    }
-}
-
-impl DecodeWithDiscriminant for u8 {
-    fn maybe_decode_with_discriminant(
-        discriminant: u8,
-        _r: &mut impl std::io::Read,
-    ) -> std::result::Result<std::option::Option<Self>, DecodeError> {
-        Ok(Some(discriminant))
     }
 }
 
