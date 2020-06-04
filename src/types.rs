@@ -9,6 +9,7 @@ use std::fmt::{self, Debug, Formatter};
 
 const OP_CODE_EMPTY_BLOCK: u8 = 0x40;
 
+#[cfg_attr(feature = "reference-types", wasmbin_discriminants)]
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ValueType {
@@ -18,6 +19,8 @@ pub enum ValueType {
     F64 = 0x7C,
     #[cfg(feature = "simd")]
     V128 = 0x7B,
+    #[cfg(feature = "reference-types")]
+    Ref(RefType),
 }
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
@@ -124,13 +127,15 @@ pub struct MemType {
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
-pub enum ElemType {
-    FuncRef = 0x70,
+pub enum RefType {
+    Func = 0x70,
+    #[cfg(feature = "reference-types")]
+    Extern = 0x6F,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct TableType {
-    pub elem_type: ElemType,
+    pub elem_type: RefType,
     pub limits: Limits,
 }
 

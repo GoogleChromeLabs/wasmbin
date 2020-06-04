@@ -110,6 +110,7 @@ fn read_all_tests(path: &Path) -> Vec<Test<WasmTest>> {
     read_proposal_tests!(unconditional "multi-value");
     read_proposal_tests!(unconditional "mutable-global");
     read_proposal_tests!(unconditional "nontrapping-float-to-int-conversions");
+    read_proposal_tests!("reference-types");
     read_proposal_tests!(unconditional "sign-extension-ops");
     read_proposal_tests!("simd");
     read_proposal_tests!("tail-call");

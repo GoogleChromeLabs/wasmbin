@@ -5,7 +5,7 @@ use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
 #[cfg(feature = "bulk-memory-operations")]
-use crate::types::ElemType;
+use crate::types::RefType;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
@@ -154,72 +154,41 @@ pub enum ElemKind {
     FuncRef = 0x00,
 }
 
-#[cfg(feature = "bulk-memory-operations")]
-#[wasmbin_discriminants]
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-#[repr(u8)]
-pub enum ElemInstruction {
-    RefNull(ElemType) = 0xD0,
-    RefFunc(FuncId) = 0xD2,
-}
-
-#[cfg(feature = "bulk-memory-operations")]
-#[derive(WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct ElemExpr {
-    pub instr: ElemInstruction,
-}
-
-#[cfg(feature = "bulk-memory-operations")]
-impl Encode for ElemExpr {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        self.instr.encode(w)?;
-        crate::instructions::OP_CODE_END.encode(w)
-    }
-}
-
-#[cfg(feature = "bulk-memory-operations")]
-impl Decode for ElemExpr {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let instr = ElemInstruction::decode(r)?;
-        match u8::decode(r)? {
-            crate::instructions::OP_CODE_END => Ok(Self { instr }),
-            discriminant => Err(DecodeError::UnsupportedDiscriminant {
-                discriminant: discriminant.into(),
-            }),
-        }
-    }
-}
-
 #[wasmbin_discriminants]
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Element {
-    Active {
+    ActiveWithFuncs {
         offset: Expression,
         funcs: Vec<FuncId>,
     } = 0x00,
     #[cfg(feature = "bulk-memory-operations")]
-    Passive { kind: ElemKind, funcs: Vec<FuncId> } = 0x01,
+    PassiveWithFuncs { kind: ElemKind, funcs: Vec<FuncId> } = 0x01,
     #[cfg(feature = "bulk-memory-operations")]
-    ActiveWithTable {
+    ActiveWithTableAndFuncs {
         table: TableId,
         offset: Expression,
+        kind: ElemKind,
         funcs: Vec<FuncId>,
     } = 0x02,
+    #[cfg(feature = "reference-types")]
+    DeclarativeWithFuncs { kind: ElemKind, funcs: Vec<FuncId> } = 0x03,
     #[cfg(feature = "bulk-memory-operations")]
     ActiveWithExprs {
         offset: Expression,
-        exprs: Vec<ElemExpr>,
+        exprs: Vec<Expression>,
     } = 0x04,
     #[cfg(feature = "bulk-memory-operations")]
-    PassiveWithExprs { ty: ElemType, exprs: Vec<ElemExpr> } = 0x05,
+    PassiveWithExprs { ty: RefType, exprs: Vec<Expression> } = 0x05,
     #[cfg(feature = "bulk-memory-operations")]
     ActiveWithTableAndExprs {
         table: TableId,
         offset: Expression,
-        ty: ElemType,
-        exprs: Vec<ElemExpr>,
+        ty: RefType,
+        exprs: Vec<Expression>,
     } = 0x06,
+    #[cfg(feature = "reference-types")]
+    DeclarativeWithExprs { ty: RefType, exprs: Vec<Expression> } = 0x07,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
