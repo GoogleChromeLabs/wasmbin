@@ -112,28 +112,10 @@ enum LimitsRepr {
     MinMax { min: u32, max: u32 } = 0x01,
 }
 
-impl Encode for Limits {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        let min = self.min;
-        match self.max {
-            Some(max) => LimitsRepr::MinMax { min, max },
-            None => LimitsRepr::Min { min },
-        }
-        .encode(w)
-    }
-}
-
-impl Decode for Limits {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Ok(match LimitsRepr::decode(r)? {
-            LimitsRepr::Min { min } => Limits { min, max: None },
-            LimitsRepr::MinMax { min, max } => Limits {
-                min,
-                max: Some(max),
-            },
-        })
-    }
-}
+encode_decode_as!(Limits, {
+    (Limits { min, max: None }) <=> (LimitsRepr::Min { min }),
+    (Limits { min, max: Some(max) }) <=> (LimitsRepr::MinMax { min, max }),
+});
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MemType {

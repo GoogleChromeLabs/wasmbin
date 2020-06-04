@@ -15,8 +15,8 @@ pub enum DecodeError {
     #[error("Could not recognise discriminant 0x{discriminant:X}")]
     UnsupportedDiscriminant { discriminant: i128 },
 
-    #[error("Invalid module magic signature")]
-    InvalidMagic,
+    #[error("Invalid module magic signature [{actual:02X?}]")]
+    InvalidMagic { actual: [u8; 8] },
 
     #[error("Unrecognized data")]
     UnrecognizedData,
@@ -34,6 +34,31 @@ pub trait Encode {
 
 pub trait Decode: Sized {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
+}
+
+macro_rules! encode_decode_as {
+    ($ty:ty, {
+        $($lhs:tt <=> $rhs:tt,)*
+    } $(, |$other:pat| $other_handler:expr)?) => {
+        impl crate::io::Encode for $ty {
+            #[allow(unused_parens)]
+            fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+                match *self {
+                    $($lhs => $rhs,)*
+                }.encode(w)
+            }
+        }
+
+        impl crate::io::Decode for $ty {
+            #[allow(unused_parens)]
+            fn decode(r: &mut impl std::io::Read) -> Result<Self, crate::io::DecodeError> {
+                Ok(match crate::io::Decode::decode(r)? {
+                    $($rhs => $lhs,)*
+                    $($other => return $other_handler)?
+                })
+            }
+        }
+    };
 }
 
 pub trait DecodeWithDiscriminant: Decode {

@@ -10,20 +10,11 @@ const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0
 #[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MagicAndVersion;
 
-impl Encode for MagicAndVersion {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        w.write_all(&MAGIC_AND_VERSION)
-    }
-}
-
-impl Decode for MagicAndVersion {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        if <[u8; 8]>::decode(r)? != MAGIC_AND_VERSION {
-            return Err(DecodeError::InvalidMagic);
-        }
-        Ok(MagicAndVersion)
-    }
-}
+encode_decode_as!(MagicAndVersion, {
+    MagicAndVersion <=> MAGIC_AND_VERSION,
+}, |actual| {
+    Err(DecodeError::InvalidMagic { actual })
+});
 
 #[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Module {
