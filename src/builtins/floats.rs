@@ -5,15 +5,13 @@ macro_rules! def_float {
     ($ty:ident) => {
         impl Encode for $ty {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-                w.write_all(&self.to_le_bytes())
+                self.to_le_bytes().encode(w)
             }
         }
 
         impl Decode for $ty {
             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                let mut bytes = [0; std::mem::size_of::<Self>()];
-                r.read_exact(&mut bytes)?;
-                Ok($ty::from_le_bytes(bytes))
+                Decode::decode(r).map($ty::from_le_bytes)
             }
         }
 

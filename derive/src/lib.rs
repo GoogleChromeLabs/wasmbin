@@ -60,27 +60,32 @@ fn discriminant<'v>(v: &VariantInfo<'v>) -> syn::Result<Option<Cow<'v, syn::Expr
         })
 }
 
-fn gen_encode_discriminant(discriminant: &syn::Expr) -> proc_macro2::TokenStream {
-    quote!(<u8 as Encode>::encode(&#discriminant, w)?)
+fn gen_encode_discriminant(repr: &syn::Type, discriminant: &syn::Expr) -> proc_macro2::TokenStream {
+    quote!(<#repr as Encode>::encode(&#discriminant, w)?)
 }
 
 fn gen_decode(v: &VariantInfo) -> proc_macro2::TokenStream {
     v.construct(|_, _| quote!(Decode::decode(r)?))
 }
 
-fn is_repr_u8(s: &Structure) -> bool {
-    s.ast().attrs.iter().any(|attr| {
-        attr.path.is_ident("repr")
-            && attr
-                .parse_args::<syn::Ident>()
-                .map_or(false, |ident| ident == "u8")
-    })
+fn parse_repr(s: &Structure) -> syn::Result<syn::Type> {
+    s.ast()
+        .attrs
+        .iter()
+        .find(|attr| attr.path.is_ident("repr"))
+        .ok_or_else(|| {
+            syn::Error::new_spanned(
+                &s.ast().ident,
+                "Wasmbin enums must have a #[repr(type)] attribute",
+            )
+        })?
+        .parse_args()
 }
 
 fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
     let (encode_discriminant, decode) = match s.ast().data {
         syn::Data::Enum(_) => {
-            assert!(is_repr_u8(&s), "Wasmbin enums must use #[repr(u8)].");
+            let repr = syn_try!(parse_repr(&s));
 
             let mut encode_discriminant = quote!();
 
@@ -94,7 +99,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     Some(discriminant) => {
                         let pat = v.pat();
 
-                        let encode = gen_encode_discriminant(&discriminant);
+                        let encode = gen_encode_discriminant(&repr, &discriminant);
                         (quote!(#pat => #encode,)).to_tokens(&mut encode_discriminant);
 
                         let construct = gen_decode(v);
@@ -132,7 +137,9 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                 },
                 quote! {
                     gen impl DecodeWithDiscriminant for @Self {
-                        fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
+                        type Discriminant = #repr;
+
+                        fn maybe_decode_with_discriminant(discriminant: #repr, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
                             Ok(Some(match discriminant {
                                 #decoders
                                 _ => #decode_other
@@ -155,9 +162,11 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
             let decode = gen_decode(v);
             match syn_try!(discriminant(v)) {
                 Some(discriminant) => (
-                    gen_encode_discriminant(&discriminant),
+                    gen_encode_discriminant(&syn::parse_quote!(u8), &discriminant),
                     quote! {
                         gen impl DecodeWithDiscriminant for @Self {
+                            type Discriminant = u8;
+
                             fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
                                 Ok(match discriminant {
                                     #discriminant => Some(#decode),

@@ -183,7 +183,9 @@ impl Decode for ElemExpr {
         let instr = ElemInstruction::decode(r)?;
         match u8::decode(r)? {
             crate::instructions::OP_CODE_END => Ok(Self { instr }),
-            discriminant => Err(DecodeError::UnsupportedDiscriminant { discriminant }),
+            discriminant => Err(DecodeError::UnsupportedDiscriminant {
+                discriminant: discriminant.into(),
+            }),
         }
     }
 }

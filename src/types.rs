@@ -16,6 +16,8 @@ pub enum ValueType {
     I64 = 0x7E,
     F32 = 0x7D,
     F64 = 0x7C,
+    #[cfg(feature = "simd")]
+    V128 = 0x7B,
 }
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

@@ -2,6 +2,50 @@ use crate::io::{Decode, DecodeError, Encode};
 use crate::visit::Visit;
 use std::convert::TryFrom;
 
+macro_rules! def_byte_array {
+    ($count:literal) => {
+        impl Encode for [u8; $count] {
+            fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+                w.write_all(self)
+            }
+        }
+
+        impl Decode for [u8; $count] {
+            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                let mut dest = [0_u8; $count];
+                r.read_exact(&mut dest)?;
+                Ok(dest)
+            }
+        }
+
+        impl Visit for [u8; $count] {
+            fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
+                &'a self,
+                f: &mut F,
+            ) -> Result<(), crate::visit::VisitError<E>> {
+                for v in self {
+                    v.visit_child(f)?;
+                }
+                Ok(())
+            }
+
+            fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
+                &mut self,
+                f: &mut F,
+            ) -> Result<(), crate::visit::VisitError<E>> {
+                for v in self {
+                    v.visit_child_mut(f)?;
+                }
+                Ok(())
+            }
+        }
+    };
+}
+
+def_byte_array!(4);
+def_byte_array!(8);
+def_byte_array!(16);
+
 impl Encode for u8 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         std::slice::from_ref(self).encode(w)

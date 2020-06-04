@@ -12,8 +12,8 @@ pub enum DecodeError {
     #[error("{0}")]
     Utf8(#[from] std::string::FromUtf8Error),
 
-    #[error("Could not recognise discriminant 0x{discriminant:02X}")]
-    UnsupportedDiscriminant { discriminant: u8 },
+    #[error("Could not recognise discriminant 0x{discriminant:X}")]
+    UnsupportedDiscriminant { discriminant: i128 },
 
     #[error("Invalid module magic signature")]
     InvalidMagic,
@@ -37,20 +37,25 @@ pub trait Decode: Sized {
 }
 
 pub trait DecodeWithDiscriminant: Decode {
+    type Discriminant: Decode + Copy + Into<i128>;
+
     fn maybe_decode_with_discriminant(
-        discriminant: u8,
+        discriminant: Self::Discriminant,
         r: &mut impl std::io::Read,
     ) -> Result<Option<Self>, DecodeError>;
 
     fn decode_with_discriminant(
-        discriminant: u8,
+        discriminant: Self::Discriminant,
         r: &mut impl std::io::Read,
     ) -> Result<Self, DecodeError> {
-        Self::maybe_decode_with_discriminant(discriminant, r)?
-            .ok_or_else(|| DecodeError::UnsupportedDiscriminant { discriminant })
+        Self::maybe_decode_with_discriminant(discriminant, r)?.ok_or_else(|| {
+            DecodeError::UnsupportedDiscriminant {
+                discriminant: discriminant.into(),
+            }
+        })
     }
 
     fn decode_without_discriminant(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Self::decode_with_discriminant(u8::decode(r)?, r)
+        Self::decode_with_discriminant(Self::Discriminant::decode(r)?, r)
     }
 }

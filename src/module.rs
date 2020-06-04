@@ -18,9 +18,7 @@ impl Encode for MagicAndVersion {
 
 impl Decode for MagicAndVersion {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut magic_and_version = [0; 8];
-        r.read_exact(&mut magic_and_version)?;
-        if magic_and_version != MAGIC_AND_VERSION {
+        if <[u8; 8]>::decode(r)? != MAGIC_AND_VERSION {
             return Err(DecodeError::InvalidMagic);
         }
         Ok(MagicAndVersion)

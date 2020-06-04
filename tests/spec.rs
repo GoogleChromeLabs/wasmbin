@@ -38,6 +38,15 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) -> Result<(
                 span,
                 module: wast::QuoteModule::Module(module),
                 message,
+            }
+            // Unlike other AssertInvalid, this is actually something we
+            // check at the parsing time, because it's part of our
+            // typesystem and doesn't require cross-function or
+            // cross-section checks.
+            | wast::WastDirective::AssertInvalid {
+                span,
+                module,
+                message: message @ "invalid lane index",
             } => (span, module, Err(message)),
             // Expect successful parsing for regular AST modules.
             wast::WastDirective::Module(module) => (module.span, module, Ok(())),
@@ -95,6 +104,7 @@ fn read_all_tests(path: &Path) -> Result<Vec<Test<WasmTest>>, Box<dyn Error>> {
 
     read_proposal_tests!("tail-call");
     read_proposal_tests!("bulk-memory-operations");
+    read_proposal_tests!("simd");
 
     if tests.is_empty() {
         return Err("Couldn't find any tests. Did you run `git submodule update --init`?".into());
