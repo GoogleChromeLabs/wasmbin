@@ -97,14 +97,22 @@ fn read_all_tests(path: &Path) -> Result<Vec<Test<WasmTest>>, Box<dyn Error>> {
     macro_rules! read_proposal_tests {
         ($name:literal) => {
             if cfg!(feature = $name) {
-                read_tests_from_dir(&proposals_dir.join($name), &mut tests)?;
+                read_proposal_tests!(unconditional $name)
             }
+        };
+
+        (unconditional $name:literal) => {
+            read_tests_from_dir(&proposals_dir.join($name), &mut tests)?
         };
     }
 
-    read_proposal_tests!("tail-call");
     read_proposal_tests!("bulk-memory-operations");
+    read_proposal_tests!(unconditional "multi-value");
+    read_proposal_tests!(unconditional "mutable-global");
+    read_proposal_tests!(unconditional "nontrapping-float-to-int-conversions");
+    read_proposal_tests!(unconditional "sign-extension-ops");
     read_proposal_tests!("simd");
+    read_proposal_tests!("tail-call");
 
     if tests.is_empty() {
         return Err("Couldn't find any tests. Did you run `git submodule update --init`?".into());
