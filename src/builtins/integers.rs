@@ -17,28 +17,6 @@ macro_rules! def_byte_array {
                 Ok(dest)
             }
         }
-
-        impl Visit for [u8; $count] {
-            fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
-                &'a self,
-                f: &mut F,
-            ) -> Result<(), crate::visit::VisitError<E>> {
-                for v in self {
-                    v.visit_child(f)?;
-                }
-                Ok(())
-            }
-
-            fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
-                &mut self,
-                f: &mut F,
-            ) -> Result<(), crate::visit::VisitError<E>> {
-                for v in self {
-                    v.visit_child_mut(f)?;
-                }
-                Ok(())
-            }
-        }
     };
 }
 

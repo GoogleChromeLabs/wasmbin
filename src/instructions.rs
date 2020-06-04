@@ -387,27 +387,8 @@ pub mod simd {
         }
     }
 
-    impl Visit for [LaneIdx32; 16] {
-        fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
-            &'a self,
-            f: &mut F,
-        ) -> Result<(), crate::visit::VisitError<E>> {
-            for v in self {
-                v.visit_child(f)?;
-            }
-            Ok(())
-        }
-
-        fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
-            &mut self,
-            f: &mut F,
-        ) -> Result<(), crate::visit::VisitError<E>> {
-            for v in self {
-                v.visit_child_mut(f)?;
-            }
-            Ok(())
-        }
-    }
+    impl_visit_for_iter!([u8; 16]);
+    impl_visit_for_iter!([LaneIdx32; 16]);
 
     #[wasmbin_discriminants]
     #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

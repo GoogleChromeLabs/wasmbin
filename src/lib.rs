@@ -9,6 +9,9 @@
 
 use wasmbin_derive::wasmbin_discriminants;
 
+#[macro_use]
+pub mod visit;
+
 pub mod builtins;
 pub mod indices;
 pub mod instructions;
@@ -16,6 +19,5 @@ pub mod io;
 pub mod module;
 pub mod sections;
 pub mod types;
-pub mod visit;
 
 pub use module::Module;
