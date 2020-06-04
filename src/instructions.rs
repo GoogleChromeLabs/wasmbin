@@ -29,7 +29,7 @@ use arbitrary::Arbitrary;
 const OP_CODE_BLOCK_START: u8 = 0x02;
 const OP_CODE_LOOP_START: u8 = 0x03;
 const OP_CODE_IF_START: u8 = 0x04;
-pub(crate) const OP_CODE_END: u8 = 0x0B;
+const OP_CODE_END: u8 = 0x0B;
 
 impl Encode for [Instruction] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
