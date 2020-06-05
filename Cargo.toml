@@ -20,11 +20,12 @@ arbitrary = { version = "0.4.1", features = ["derive"] }
 [features]
 default = []
 nightly = ["criterion/real_blackbox", "wasmbin-derive/nightly"]
-proposals = ["tail-call", "simd", "reference-types"]
+proposals = ["tail-call", "simd", "reference-types", "threads"]
 tail-call = []
 bulk-memory-operations = []
 simd = []
 reference-types = ["bulk-memory-operations"]
+threads = []
 
 [dev-dependencies]
 criterion = "0.3.1"

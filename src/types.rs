@@ -134,10 +134,31 @@ encode_decode_as!(Limits, {
     (Limits { min, max: Some(max) }) <=> (LimitsRepr::MinMax { min, max }),
 });
 
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[cfg(feature = "threads")]
+#[wasmbin_discriminants]
+#[derive(Wasmbin)]
+#[repr(u8)]
+enum MemTypeRepr {
+    Unshared(LimitsRepr),
+    SharedMin { min: u32 } = 0x02,
+    SharedMinMax { min: u32, max: u32 } = 0x03,
+}
+
+#[cfg_attr(not(feature = "threads"), derive(Wasmbin))]
+#[derive(WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MemType {
+    #[cfg(feature = "threads")]
+    pub is_shared: bool,
     pub limits: Limits,
 }
+
+#[cfg(feature = "threads")]
+encode_decode_as!(MemType, {
+    (MemType { is_shared: false, limits: Limits { min, max: None } }) <=> (MemTypeRepr::Unshared(LimitsRepr::Min { min })),
+    (MemType { is_shared: false, limits: Limits { min, max: Some(max) } }) <=> (MemTypeRepr::Unshared(LimitsRepr::MinMax { min, max })),
+    (MemType { is_shared: true, limits: Limits { min, max: None } }) <=> (MemTypeRepr::SharedMin { min }),
+    (MemType { is_shared: true, limits: Limits { min, max: Some(max) } }) <=> (MemTypeRepr::SharedMinMax { min, max }),
+});
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]

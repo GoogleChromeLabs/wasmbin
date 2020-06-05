@@ -73,6 +73,9 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
             // check at the parsing time, because it's part of our
             // typesystem and doesn't require cross-function or
             // cross-section checks.
+            //
+            // See https://github.com/WebAssembly/simd/issues/256 for accepted
+            // but pending suggestion to change proposal to match this as well.
             | wast::WastDirective::AssertInvalid {
                 span,
                 module,
@@ -135,6 +138,7 @@ fn read_all_tests(path: &Path) -> (Vec<Test<WasmTest>>, bool) {
     read_proposal_tests!("reference-types");
     read_proposal_tests!("simd");
     read_proposal_tests!("tail-call");
+    read_proposal_tests!("threads");
 
     let has_proposals = !tests.is_empty();
 
