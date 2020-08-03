@@ -18,6 +18,7 @@ arbitrary = { version = "0.4.1", features = ["derive"] }
 default = ["lazy-blob"]
 lazy-blob = []
 nightly = ["criterion/real_blackbox", "wasmbin-derive/nightly"]
+proposals = ["tail-call", "simd", "reference-types"]
 tail-call = []
 bulk-memory-operations = []
 simd = []
@@ -26,7 +27,7 @@ reference-types = ["bulk-memory-operations"]
 [dev-dependencies]
 criterion = "0.3.1"
 libtest-mimic = "0.2.0"
-wast = "17.0.0"
+wast = "21.0.0"
 fehler = "1.0.0"
 anyhow = "1.0.31"
 
