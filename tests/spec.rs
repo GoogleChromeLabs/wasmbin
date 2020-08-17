@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use anyhow::{bail, Error};
+use anyhow::{bail, Error, Context};
 use fehler::throws;
 use libtest_mimic::{run_tests, Arguments, Outcome, Test};
 use std::fs::{read_dir, read_to_string};
@@ -111,21 +111,13 @@ fn read_all_tests(path: &Path) -> Vec<Test<WasmTest>> {
     macro_rules! read_proposal_tests {
         ($name:literal) => {
             if cfg!(feature = $name) {
-                read_proposal_tests!(unconditional $name)
+                read_tests_from_dir(&proposals_dir.join($name), &mut tests).context($name)?
             }
-        };
-
-        (unconditional $name:literal) => {
-            read_tests_from_dir(&proposals_dir.join($name), &mut tests)?
         };
     }
 
     read_proposal_tests!("bulk-memory-operations");
-    read_proposal_tests!(unconditional "multi-value");
-    read_proposal_tests!(unconditional "mutable-global");
-    read_proposal_tests!(unconditional "nontrapping-float-to-int-conversions");
     read_proposal_tests!("reference-types");
-    read_proposal_tests!(unconditional "sign-extension-ops");
     read_proposal_tests!("simd");
     read_proposal_tests!("tail-call");
 
