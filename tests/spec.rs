@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use anyhow::{bail, Error, Context};
+use anyhow::{bail, Context, Error};
 use fehler::throws;
 use libtest_mimic::{run_tests, Arguments, Outcome, Test};
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
-use wasmbin::Module;
+use wasmbin::{
+    io::DecodeError,
+    visit::{Visit, VisitError},
+    Module,
+};
 use wast::parser::{parse, ParseBuffer};
 use wast::Wast;
 
@@ -81,7 +85,7 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
             kind: String::default(),
             is_ignored: match expect_result {
                 Ok(()) => false,
-                Err(err) => cfg!(feature = "lazy-blob") || IGNORED_ERRORS.contains(&err),
+                Err(err) => IGNORED_ERRORS.contains(&err),
             },
             is_bench: false,
             data: WasmTest {
@@ -128,10 +132,20 @@ fn read_all_tests(path: &Path) -> Vec<Test<WasmTest>> {
     tests
 }
 
+fn unlazify<T: Visit>(mut wasm: T) -> Result<T, DecodeError> {
+    match wasm.visit_mut(|()| {}) {
+        Ok(()) => Ok(wasm),
+        Err(err) => match err {
+            VisitError::LazyDecode(err) => Err(err),
+            VisitError::Custom(err) => match err {},
+        },
+    }
+}
+
 #[throws]
 fn run_test(test: &WasmTest) {
     let mut slice = test.module.as_slice();
-    let module = match (Module::decode_from(&mut slice), &test.expect_result) {
+    let module = match (Module::decode_from(&mut slice).and_then(unlazify), &test.expect_result) {
         (Ok(_), Err(err)) => bail!("Expected an invalid module definition with an error: {}", err),
         (Err(err), Ok(())) => bail!(
             "Expected a valid module definition, but got an error\nParsed part: {:02X?}\nUnparsed part: {:02X?}\nError: {:#}",
@@ -161,9 +175,6 @@ fn run_test(test: &WasmTest) {
 
 #[throws]
 fn main() {
-    if cfg!(feature = "lazy-blob") {
-        eprintln!("Warning: tests are being run in a lazy mode and will be incomplete.");
-    }
     let tests = read_all_tests(&Path::new("tests").join("testsuite"))?;
     run_tests(&Arguments::from_args(), tests, |test| {
         match run_test(&test.data) {

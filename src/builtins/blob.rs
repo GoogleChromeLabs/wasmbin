@@ -91,10 +91,6 @@ impl<T: Decode + Encode> Encode for Blob<T> {
 impl<T: Decode> Decode for Blob<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let contents: Lazy<T> = RawBlob::decode(r)?.contents;
-        #[cfg(not(feature = "lazy-blob"))]
-        {
-            contents.try_contents()?;
-        }
         Ok(Self { contents })
     }
 }
