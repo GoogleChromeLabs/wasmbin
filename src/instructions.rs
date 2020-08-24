@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::builtins::FloatConst;
 #[cfg(feature = "bulk-memory-operations")]
 use crate::indices::{DataId, ElemId};
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
@@ -69,41 +70,6 @@ impl crate::builtins::WasmbinCountable for Expression {}
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
-}
-
-/// A wrapper around floats that treats `NaN`s as equal.
-///
-/// This is useful in instruction context, where we don't care
-/// about general floating number rules.
-#[derive(Wasmbin, Debug, Arbitrary, Clone, Visit)]
-pub struct FloatConst<F> {
-    pub value: F,
-}
-
-impl PartialEq for FloatConst<f32> {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value || self.value.is_nan() && other.value.is_nan()
-    }
-}
-
-impl PartialEq for FloatConst<f64> {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value || self.value.is_nan() && other.value.is_nan()
-    }
-}
-
-impl<F> Eq for FloatConst<F> where Self: PartialEq {}
-
-impl std::hash::Hash for FloatConst<f32> {
-    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
-        h.write(&self.value.to_ne_bytes())
-    }
-}
-
-impl std::hash::Hash for FloatConst<f64> {
-    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
-        h.write(&self.value.to_ne_bytes())
-    }
 }
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

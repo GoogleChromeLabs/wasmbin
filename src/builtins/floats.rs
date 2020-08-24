@@ -12,8 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::{Decode, DecodeError, Encode};
+use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
+use arbitrary::Arbitrary;
+
+/// A wrapper around floats that treats `NaN`s as equal.
+///
+/// This is useful in instruction context, where we don't care
+/// about general floating number rules.
+#[derive(Wasmbin, Debug, Arbitrary, Clone, Visit)]
+pub struct FloatConst<F> {
+    pub value: F,
+}
+
+impl<F> Eq for FloatConst<F> where Self: PartialEq {}
 
 macro_rules! def_float {
     ($ty:ident) => {
@@ -30,6 +42,18 @@ macro_rules! def_float {
         }
 
         impl Visit for $ty {}
+
+        impl PartialEq for FloatConst<$ty> {
+            fn eq(&self, other: &Self) -> bool {
+                self.value == other.value || self.value.is_nan() && other.value.is_nan()
+            }
+        }
+
+        impl std::hash::Hash for FloatConst<$ty> {
+            fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+                h.write(&self.value.to_ne_bytes())
+            }
+        }
     };
 }
 

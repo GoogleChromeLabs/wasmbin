@@ -22,4 +22,5 @@ mod strings;
 
 pub use blob::{Blob, RawBlob};
 pub use collections::WasmbinCountable;
+pub use floats::FloatConst;
 pub use lazy::Lazy;
