@@ -9,7 +9,7 @@ license = "Apache-2.0"
 [dependencies]
 leb128 = "0.2.4"
 thiserror = "1.0.9"
-wasmbin-derive = { path = "derive" }
+wasmbin-derive = { version = "0.1.0", path = "derive" }
 custom_debug = "0.4.0"
 once_cell = "1.3.1"
 arbitrary = { version = "0.4.1", features = ["derive"] }
