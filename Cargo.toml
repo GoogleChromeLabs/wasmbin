@@ -41,3 +41,5 @@ debug = true
 [[test]]
 name = "spec"
 harness = false
+
+[workspace]
