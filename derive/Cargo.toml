@@ -4,11 +4,11 @@ version = "0.1.0"
 authors = ["Ingvar Stepanyan <rreverser@google.com>"]
 edition = "2018"
 license = "Apache-2.0"
+description = "Derive crate for the wasmbin library"
+repository = "https://github.com/GoogleChromeLabs/wasmbin"
 
 [lib]
 proc-macro = true
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 synstructure = "0.12.3"
