@@ -15,13 +15,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Check out the repo
+      uses: actions/checkout@v2
       with:
         submodules: true
     - run: rustup component add clippy
-    - uses: actions-rs/clippy-check@v1
+    - name: Run tests with proposals enabled
+      run: cargo test --verbose --features=proposals -- -q
+    - name: Install and switch to nightly Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly
+        override: true
+    - name: Run `clippy check`
+      uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        args: --features=proposals
-    - name: Run tests
-      run: cargo test --verbose
+        args: --all-features --all-targets
