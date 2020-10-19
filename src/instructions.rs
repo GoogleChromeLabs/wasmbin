@@ -285,7 +285,7 @@ pub enum Instruction {
 
 #[cfg_attr(feature = "bulk-memory-operations", wasmbin_discriminants)]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum Misc {
     I32TruncSatF32S = 0x00,
     I32TruncSatF32U = 0x01,
@@ -558,6 +558,14 @@ pub mod simd {
         I64x2Add = 0xCE,
         I64x2Sub = 0xD1,
         I64x2Mul = 0xD5,
+        F32x4Ceil = 0xD8,
+        F32x4Floor = 0xD9,
+        F32x4Trunc = 0xDA,
+        F32x4Nearest = 0xDB,
+        F64x2Ceil = 0xDC,
+        F64x2Floor = 0xDD,
+        F64x2Trunc = 0xDE,
+        F64x2Nearest = 0xDF,
         F32x4Abs = 0xE0,
         F32x4Neg = 0xE1,
         F32x4Sqrt = 0xE3,
@@ -567,6 +575,8 @@ pub mod simd {
         F32x4Div = 0xE7,
         F32x4Min = 0xE8,
         F32x4Max = 0xE9,
+        F32x4PMin = 0xEA,
+        F32x4PMax = 0xEB,
         F64x2Abs = 0xEC,
         F64x2Neg = 0xED,
         F64x2Sqrt = 0xEF,
@@ -576,6 +586,8 @@ pub mod simd {
         F64x2Div = 0xF3,
         F64x2Min = 0xF4,
         F64x2Max = 0xF5,
+        F64x2PMin = 0xF6,
+        F64x2PMax = 0xF7,
         I32x4TruncSatF32x4S = 0xF8,
         I32x4TruncSatF32x4U = 0xF9,
         F32x4ConvertI32x4S = 0xFA,
