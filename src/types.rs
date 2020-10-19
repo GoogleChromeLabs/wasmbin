@@ -27,12 +27,12 @@ const OP_CODE_EMPTY_BLOCK: u8 = 0x40;
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ValueType {
-    I32 = 0x7F,
-    I64 = 0x7E,
-    F32 = 0x7D,
-    F64 = 0x7C,
     #[cfg(feature = "simd")]
     V128 = 0x7B,
+    F64 = 0x7C,
+    F32 = 0x7D,
+    I64 = 0x7E,
+    I32 = 0x7F,
     #[cfg(feature = "reference-types")]
     Ref(RefType),
 }
