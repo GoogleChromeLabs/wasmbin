@@ -330,6 +330,7 @@ pub enum Misc {
 }
 
 #[cfg(feature = "simd")]
+#[allow(clippy::wildcard_imports)]
 pub mod simd {
     use super::*;
 
@@ -359,6 +360,7 @@ pub mod simd {
             }
 
             impl Arbitrary for $name {
+                #[allow(clippy::range_minus_one)]
                 fn arbitrary(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Self> {
                     u.int_in_range(0..=($num - 1)).map(Self)
                 }
@@ -374,7 +376,7 @@ pub mod simd {
 
     impl Encode for [LaneIdx32; 16] {
         fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-            unsafe { std::mem::transmute::<&[LaneIdx32; 16], &[u8; 16]>(self) }.encode(w)
+            unsafe { &*(self as *const [LaneIdx32; 16] as *const [u8; 16]) }.encode(w)
         }
     }
 
