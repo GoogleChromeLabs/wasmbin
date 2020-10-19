@@ -80,16 +80,23 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
             }
         };
         let (line, col) = span.linecol_in(&src);
+        let module = module.encode()?;
         dest.push(Test {
             name: format!("{}:{}:{}", path.display(), line + 1, col + 1),
             kind: String::default(),
             is_ignored: match expect_result {
-                Ok(()) => false,
+                // see https://github.com/WebAssembly/bulk-memory-operations/issues/153
+                Ok(()) => match module[..] {
+                    | [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x00, 0x00, 0x0B, 0x07, 0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00]
+                    | [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x04, 0x04, 0x01, 0x70, 0x00, 0x00, 0x09, 0x07, 0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00]
+                    => true,
+                    _ => false,
+                },
                 Err(err) => IGNORED_ERRORS.contains(&err),
             },
             is_bench: false,
             data: WasmTest {
-                module: module.encode()?,
+                module,
                 expect_result: expect_result.map_err(|err| err.to_owned()),
             },
         });
