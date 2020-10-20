@@ -42,7 +42,7 @@ struct WasmTest {
 }
 
 #[throws]
-fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
+fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malformed: bool) {
     let src = read_to_string(path)?;
     let set_err_path_text = |mut err: wast::Error| {
         err.set_path(path);
@@ -52,6 +52,10 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
     let buf = ParseBuffer::new(&src).map_err(set_err_path_text)?;
     let wast = parse::<Wast>(&buf).map_err(set_err_path_text)?;
     for directive in wast.directives {
+        let is_ignored = match directive {
+            wast::WastDirective::AssertMalformed { .. } => ignore_malformed,
+            _ => false
+        };
         let (span, mut module, expect_result) = match directive {
             // Expect errors for assert_malformed on binary or AST modules.
             wast::WastDirective::AssertMalformed {
@@ -84,7 +88,7 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
         dest.push(Test {
             name: format!("{}:{}:{}", path.display(), line + 1, col + 1),
             kind: String::default(),
-            is_ignored: match expect_result {
+            is_ignored: is_ignored || match expect_result {
                 // see https://github.com/WebAssembly/bulk-memory-operations/issues/153
                 Ok(()) => match module[..] {
                     | [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x00, 0x00, 0x0B, 0x07, 0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00]
@@ -104,25 +108,24 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
 }
 
 #[throws]
-fn read_tests_from_dir(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
+fn read_tests_from_dir(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malformed: bool) {
     for file in read_dir(path)? {
         let path = file?.path();
         if path.extension().map_or(false, |ext| ext == "wast") {
-            read_tests_from_file(&path, dest)?;
+            read_tests_from_file(&path, dest, ignore_malformed)?;
         }
     }
 }
 
 #[throws]
-fn read_all_tests(path: &Path) -> Vec<Test<WasmTest>> {
+fn read_all_tests(path: &Path) -> (Vec<Test<WasmTest>>, bool) {
     let mut tests = Vec::new();
-    read_tests_from_dir(path, &mut tests)?;
     let proposals_dir = path.join("proposals");
 
     macro_rules! read_proposal_tests {
         ($name:literal) => {
             if cfg!(feature = $name) {
-                read_tests_from_dir(&proposals_dir.join($name), &mut tests).context($name)?
+                read_tests_from_dir(&proposals_dir.join($name), &mut tests, false).context($name)?
             }
         };
     }
@@ -132,11 +135,15 @@ fn read_all_tests(path: &Path) -> Vec<Test<WasmTest>> {
     read_proposal_tests!("simd");
     read_proposal_tests!("tail-call");
 
+    let has_proposals = !tests.is_empty();
+
+    read_tests_from_dir(path, &mut tests, has_proposals)?;
+
     if tests.is_empty() {
         bail!("Couldn't find any tests. Did you run `git submodule update --init`?");
     }
 
-    tests
+    (tests, has_proposals)
 }
 
 fn unlazify<T: Visit>(mut wasm: T) -> Result<T, DecodeError> {
@@ -182,7 +189,8 @@ fn run_test(test: &WasmTest) {
 
 #[throws]
 fn main() {
-    let tests = read_all_tests(&Path::new("tests").join("testsuite"))?;
+    let (tests, has_proposals) = read_all_tests(&Path::new("tests").join("testsuite"))?;
+
     run_tests(&Arguments::from_args(), tests, |test| {
         match run_test(&test.data) {
             Ok(()) => Outcome::Passed,
@@ -192,4 +200,9 @@ fn main() {
         }
     })
     .exit_if_failed();
+
+    if has_proposals {
+        eprintln!("Proposals were enabled, so upstream `assert_malformed` tests were ignored.\n\
+        Re-run without any proposals enabled for the full upstream test coverage.");
+    }
 }
