@@ -54,7 +54,7 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
     for directive in wast.directives {
         let is_ignored = match directive {
             wast::WastDirective::AssertMalformed { .. } => ignore_malformed,
-            _ => false
+            _ => false,
         };
         let (span, mut module, expect_result) = match directive {
             // Expect errors for assert_malformed on binary or AST modules.
@@ -202,7 +202,9 @@ fn main() {
     .exit_if_failed();
 
     if has_proposals {
-        eprintln!("Proposals were enabled, so upstream `assert_malformed` tests were ignored.\n\
-        Re-run without any proposals enabled for the full upstream test coverage.");
+        eprintln!(
+            "Proposals were enabled, so upstream `assert_malformed` tests were ignored.\n\
+             Re-run without any proposals enabled for the full upstream test coverage."
+        );
     }
 }
