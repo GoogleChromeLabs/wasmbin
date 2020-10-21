@@ -17,7 +17,7 @@ use crate::io::{Decode, DecodeError, Encode};
 use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
-use once_cell::unsync::OnceCell;
+use once_cell::sync::OnceCell;
 use std::hash::Hash;
 
 #[derive(CustomDebug, Clone)]

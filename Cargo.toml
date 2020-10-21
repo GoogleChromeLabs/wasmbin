@@ -34,6 +34,7 @@ wast = "25.0.2"
 fehler = "1.0.0"
 anyhow = "1.0.31"
 tempfile = "3.1.0"
+rayon = "1.4.1"
 
 [[bench]]
 name = "bench"

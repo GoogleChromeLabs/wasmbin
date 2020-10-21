@@ -12,9 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom};
+use wasmbin::io::DecodeError;
+use wasmbin::visit::{Visit, VisitError};
 use wasmbin::Module;
+
+fn unlazify<T: Visit>(wasm: &T) -> Result<(), DecodeError> {
+    match wasm.visit(|()| {}) {
+        Ok(()) => Ok(()),
+        Err(err) => match err {
+            VisitError::LazyDecode(err) => Err(err),
+            VisitError::Custom(err) => match err {},
+        },
+    }
+}
 
 fn main() {
     let f = File::open(std::env::args().nth(1).expect("expected filename")).unwrap();
@@ -26,5 +39,12 @@ fn main() {
             err
         )
     });
-    println!("{:#?}", m);
+    m.sections
+        .par_iter()
+        .try_for_each(|section| -> Result<(), DecodeError> {
+            unlazify(section)?;
+            println!("{:#?}", section);
+            Ok(())
+        })
+        .unwrap();
 }
