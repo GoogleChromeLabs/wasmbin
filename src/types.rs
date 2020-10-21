@@ -74,7 +74,7 @@ impl Decode for BlockType {
         let as_i64 = i64::decode(&mut r)?;
         // These indices are encoded as positive signed integers.
         // Convert them to unsigned integers and error out if they're out of range.
-        let index = u32::try_from(as_i64).map_err(|_| leb128::read::Error::Overflow)?;
+        let index = u32::try_from(as_i64)?;
         Ok(BlockType::MultiValue(TypeId { index }))
     }
 }

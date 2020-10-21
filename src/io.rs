@@ -45,6 +45,18 @@ pub enum DecodeError {
     },
 }
 
+impl From<std::num::TryFromIntError> for DecodeError {
+    fn from(_err: std::num::TryFromIntError) -> Self {
+        DecodeError::Leb128(leb128::read::Error::Overflow)
+    }
+}
+
+impl From<std::convert::Infallible> for DecodeError {
+    fn from(err: std::convert::Infallible) -> Self {
+        match err {}
+    }
+}
+
 pub trait Encode {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()>;
 }

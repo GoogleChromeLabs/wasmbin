@@ -30,15 +30,14 @@ fn deep_module() -> Module {
     for _ in 0..100_000 {
         expr.push(Instruction::End);
     }
-    let raw = Module {
+    Module {
         sections: vec![vec![Blob::from(FuncBody {
             locals: Default::default(),
             expr,
         })]
         .into()],
         ..Default::default()
-    };
-    std::convert::TryFrom::try_from(raw).unwrap()
+    }
 }
 
 fn bench_parse(c: &mut Criterion) {

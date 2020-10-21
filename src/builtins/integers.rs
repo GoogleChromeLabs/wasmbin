@@ -96,8 +96,7 @@ macro_rules! def_integer {
 
                 let mut r = std::io::Read::take(r, LIMIT);
                 let as_64 = leb128::read::$leb128_method(&mut r)?;
-                let res = Self::try_from(as_64)
-                    .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))?;
+                let res = Self::try_from(as_64)?;
 
                 Ok(res)
             }
@@ -123,8 +122,7 @@ impl Encode for usize {
 
 impl Decode for usize {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        usize::try_from(u32::decode(r)?)
-            .map_err(|_| DecodeError::Leb128(leb128::read::Error::Overflow))
+        Ok(usize::try_from(u32::decode(r)?)?)
     }
 }
 
