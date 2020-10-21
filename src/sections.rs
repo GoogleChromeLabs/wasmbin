@@ -73,6 +73,18 @@ impl Decode for Vec<NameSubSection> {
     }
 }
 
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+pub struct ProducerField {
+    pub name: String,
+    pub values: Vec<ProducerVersionedName>,
+}
+
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+pub struct ProducerVersionedName {
+    name: String,
+    version: String,
+}
+
 #[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawCustomSection {
     name: String,
@@ -115,6 +127,7 @@ macro_rules! define_custom_sections {
 
 define_custom_sections! {
     Name(Vec<NameSubSection>) = "name",
+    Producers(Vec<ProducerField>) = "producers",
 }
 
 #[wasmbin_discriminants]
