@@ -36,13 +36,21 @@ const IGNORED_ERRORS: &[&str] = &[
     "too many locals",
 ];
 
-// See https://github.com/WebAssembly/bulk-memory-operations/issues/153.
 const IGNORED_MODULES: &[&[u8]] = &[
+    // See https://github.com/WebAssembly/bulk-memory-operations/issues/153.
     &[
-        0x05, 0x03, 0x01, 0x00, 0x00, 0x0B, 0x07, 0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00,
+        0x00, b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x00, 0x00, 0x0B, 0x07,
+        0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00,
     ],
+    // See https://github.com/WebAssembly/bulk-memory-operations/issues/153.
     &[
-        0x04, 0x04, 0x01, 0x70, 0x00, 0x00, 0x09, 0x07, 0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00,
+        0x00, b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00, 0x04, 0x04, 0x01, 0x70, 0x00, 0x00, 0x09,
+        0x07, 0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00,
+    ],
+    // An `assert_malformed` test in bulk-memory proposal that becomes well-formed when threads are enabled.
+    #[cfg(all(feature = "bulk-memory-operations", feature = "threads"))]
+    &[
+        0x00, b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x02, 0x00,
     ],
 ];
 
@@ -97,11 +105,11 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
         dest.push(Test {
             name: format!("{}:{}:{}", path.display(), line + 1, col + 1),
             kind: String::default(),
-            is_ignored: match &expect_result {
-                // see https://github.com/WebAssembly/bulk-memory-operations/issues/153
-                Ok(()) => IGNORED_MODULES.contains(&&module[8..]),
-                Err(err) => ignore_malformed || IGNORED_ERRORS.contains(&err.as_str()),
-            },
+            is_ignored: IGNORED_MODULES.contains(&module.as_slice())
+                || match &expect_result {
+                    Ok(()) => false,
+                    Err(err) => ignore_malformed || IGNORED_ERRORS.contains(&err.as_str()),
+                },
             is_bench: false,
             data: WasmTest {
                 module,
@@ -165,7 +173,7 @@ fn unlazify<T: Visit>(mut wasm: T) -> Result<T, DecodeError> {
 fn run_test(test: &WasmTest) {
     let mut slice = test.module.as_slice();
     let module = match (Module::decode_from(&mut slice).and_then(unlazify), &test.expect_result) {
-        (Ok(_), Err(err)) => bail!("Expected an invalid module definition with an error: {}", err),
+        (Ok(ref module), Err(err)) => bail!("Expected an invalid module definition with an error: {}\nParsed part: {:02X?}\nGot module: {:02X?}", err, test.module, module),
         (Err(err), Ok(())) => bail!(
             "Expected a valid module definition, but got an error\nParsed part: {:02X?}\nUnparsed part: {:02X?}\nError: {:#}",
             &test.module[..test.module.len() - slice.len()],
