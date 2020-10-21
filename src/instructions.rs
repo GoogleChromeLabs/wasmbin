@@ -601,6 +601,7 @@ pub mod simd {
 pub use simd::SIMD;
 
 #[cfg(feature = "threads")]
+#[allow(clippy::wildcard_imports)]
 pub mod threads {
     use super::*;
 
@@ -645,10 +646,9 @@ pub mod threads {
     #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
     #[repr(u8)]
     pub enum Atomic {
-        MemoryNotify(MemArg32) = 0x00,
-        MemoryWait32(MemArg32) = 0x01,
-        MemoryWait64(MemArg64) = 0x02,
-        AtomicFence(u8) = 0x03,
+        Wake(MemArg32) = 0x00,
+        I32Wait(MemArg32) = 0x01,
+        I64Wait(MemArg64) = 0x02,
         I32Load(MemArg32) = 0x10,
         I64Load(MemArg64) = 0x11,
         I32Load8U(MemArg8) = 0x12,
