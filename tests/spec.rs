@@ -52,10 +52,6 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
     let buf = ParseBuffer::new(&src).map_err(set_err_path_text)?;
     let wast = parse::<Wast>(&buf).map_err(set_err_path_text)?;
     for directive in wast.directives {
-        let is_ignored = match directive {
-            wast::WastDirective::AssertMalformed { .. } => ignore_malformed,
-            _ => false,
-        };
         let (span, mut module, expect_result) = match directive {
             // Expect errors for assert_malformed on binary or AST modules.
             wast::WastDirective::AssertMalformed {
@@ -71,7 +67,7 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
                 span,
                 module,
                 message: message @ "invalid lane index",
-            } => (span, module, Err(message)),
+            } => (span, module, Err(message.to_owned())),
             // Expect successful parsing for regular AST modules.
             wast::WastDirective::Module(module) => (module.span, module, Ok(())),
             // Counter-intuitively, expect successful parsing for modules that are supposed
@@ -88,7 +84,7 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
         dest.push(Test {
             name: format!("{}:{}:{}", path.display(), line + 1, col + 1),
             kind: String::default(),
-            is_ignored: is_ignored || match expect_result {
+            is_ignored: match &expect_result {
                 // see https://github.com/WebAssembly/bulk-memory-operations/issues/153
                 Ok(()) => match module[..] {
                     | [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x00, 0x00, 0x0B, 0x07, 0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00]
@@ -96,12 +92,12 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
                     => true,
                     _ => false,
                 },
-                Err(err) => IGNORED_ERRORS.contains(&err),
+                Err(err) => ignore_malformed || IGNORED_ERRORS.contains(&err.as_str()),
             },
             is_bench: false,
             data: WasmTest {
                 module,
-                expect_result: expect_result.map_err(|err| err.to_owned()),
+                expect_result,
             },
         });
     }
