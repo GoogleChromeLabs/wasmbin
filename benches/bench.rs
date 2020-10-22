@@ -1,3 +1,6 @@
+#[cfg(not(feature = "bulk-memory-operations"))]
+compile_error!("benches/fixture.wasm requires the bulk-memory-operations feature to be enabled.");
+
 // Copyright 2020 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +18,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::fs::File;
 use tempfile::tempfile;
+use wasmbin::io::DecodeError;
+use wasmbin::visit::{Visit, VisitError};
 use wasmbin::Module;
 
 fn deep_module() -> Module {
@@ -40,11 +45,21 @@ fn deep_module() -> Module {
     }
 }
 
+fn unlazify<T: Visit>(wasm: T) -> Result<T, DecodeError> {
+    match wasm.visit(|()| {}) {
+        Ok(()) => Ok(wasm),
+        Err(err) => match err {
+            VisitError::LazyDecode(err) => Err(err),
+            VisitError::Custom(err) => match err {},
+        },
+    }
+}
+
 fn bench_parse(c: &mut Criterion) {
     c.bench_function(concat!(stringify!($name), "::bench_parse"), |b| {
         b.iter(|| {
             let f = File::open("benches/fixture.wasm").unwrap();
-            Module::decode_from(f).unwrap()
+            unlazify(Module::decode_from(f).unwrap())
         })
     });
 }
@@ -54,7 +69,7 @@ fn bench_parse_buf(c: &mut Criterion) {
         b.iter(|| {
             let f = File::open("benches/fixture.wasm").unwrap();
             let f = std::io::BufReader::new(f);
-            Module::decode_from(f).unwrap()
+            unlazify(Module::decode_from(f).unwrap())
         })
     });
 }
@@ -64,7 +79,7 @@ fn bench_parse_vec(c: &mut Criterion) {
         let f = std::fs::read("benches/fixture.wasm").unwrap();
         b.iter(|| {
             let f = black_box(f.as_slice());
-            Module::decode_from(f).unwrap()
+            unlazify(Module::decode_from(f).unwrap())
         })
     });
 }
@@ -76,7 +91,7 @@ fn bench_parse_deep_module(c: &mut Criterion) {
             let f = deep_module().encode_into(Vec::new()).unwrap();
             b.iter(|| {
                 let f = black_box(f.as_slice());
-                Module::decode_from(f).unwrap()
+                unlazify(Module::decode_from(f).unwrap())
             })
         },
     );
@@ -84,7 +99,7 @@ fn bench_parse_deep_module(c: &mut Criterion) {
 
 fn read_module() -> Module {
     let f = std::fs::read("benches/fixture.wasm").unwrap();
-    Module::decode_from(f.as_slice()).unwrap()
+    unlazify(Module::decode_from(f.as_slice()).unwrap()).unwrap()
 }
 
 fn bench_write(c: &mut Criterion) {
