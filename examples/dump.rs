@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom};
 use structopt::StructOpt;
 use wasmbin::io::DecodeError;
-use wasmbin::sections::{CustomSection, Kind, RawCustomSection, Section};
+use wasmbin::sections::{Kind, Section};
 use wasmbin::visit::{Visit, VisitError};
 use wasmbin::Module;
 
@@ -81,11 +81,7 @@ fn main() {
         DumpSection::Custom { name } => Box::new(move |s: &Section| {
             let other_name = match s {
                 Section::Custom(s) => match s.try_contents() {
-                    Ok(CustomSection::Other(RawCustomSection {
-                        name: other_name, ..
-                    })) => Some(other_name.as_str()),
-                    Ok(CustomSection::Name(_)) => Some("name"),
-                    Ok(CustomSection::Producers(_)) => Some("producers"),
+                    Ok(section) => Some(section.name()),
                     Err(err) => {
                         eprintln!("Warning: could not parse a custom section. {}", err);
                         None

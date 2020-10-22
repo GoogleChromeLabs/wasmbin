@@ -101,6 +101,15 @@ macro_rules! define_custom_sections {
             Other(RawCustomSection),
         }
 
+        impl CustomSection {
+            pub fn name(&self) -> &str {
+                match self {
+                    $(Self::$name(_) => $disc,)*
+                    Self::Other(raw) => raw.name.as_str(),
+                }
+            }
+        }
+
         impl Encode for CustomSection {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
                 match self {
