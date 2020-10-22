@@ -87,10 +87,10 @@ pub struct ProducerVersionedName {
 
 #[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawCustomSection {
-    name: String,
+    pub name: String,
 
     #[debug(with = "custom_debug::hexbuf_str")]
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 macro_rules! define_custom_sections {

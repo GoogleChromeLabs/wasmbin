@@ -1,6 +1,6 @@
 [package]
 name = "wasmbin"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Ingvar Stepanyan <rreverser@google.com>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -34,7 +34,7 @@ wast = "25.0.2"
 fehler = "1.0.0"
 anyhow = "1.0.31"
 tempfile = "3.1.0"
-rayon = "1.4.1"
+structopt = "0.3.20"
 
 [[bench]]
 name = "bench"
