@@ -81,8 +81,8 @@ pub struct ProducerField {
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ProducerVersionedName {
-    name: String,
-    version: String,
+    pub name: String,
+    pub version: String,
 }
 
 #[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
