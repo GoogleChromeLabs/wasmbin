@@ -16,7 +16,7 @@ use crate::builtins::WasmbinCountable;
 use crate::io::{Decode, DecodeError, Encode};
 use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
-use custom_debug::CustomDebug;
+use custom_debug::Debug as CustomDebug;
 use once_cell::sync::OnceCell;
 use std::hash::Hash;
 
