@@ -30,7 +30,7 @@ threads = []
 [dev-dependencies]
 criterion = "0.3.1"
 libtest-mimic = "0.3.0"
-wast = "25.0.2"
+wast = "35.0.2"
 fehler = "1.0.0"
 anyhow = "1.0.31"
 tempfile = "3.1.0"
