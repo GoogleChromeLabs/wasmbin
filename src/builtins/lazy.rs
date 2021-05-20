@@ -159,24 +159,17 @@ impl<T: Decode + Hash> Hash for Lazy<T> {
     }
 }
 
-impl<T: Arbitrary> Arbitrary for Lazy<T> {
-    fn arbitrary(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Self> {
+impl<'a, T: Arbitrary<'a>> Arbitrary<'a> for Lazy<T> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         T::arbitrary(u).map(Self::from)
     }
 
-    fn arbitrary_take_rest(u: arbitrary::Unstructured) -> arbitrary::Result<Self> {
+    fn arbitrary_take_rest(u: arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         T::arbitrary_take_rest(u).map(Self::from)
     }
 
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
         T::size_hint(depth)
-    }
-
-    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-        match &self.status {
-            LazyStatus::Output { value } => Box::new(value.shrink().map(Self::from)),
-            _ => unreachable!(),
-        }
     }
 }
 
