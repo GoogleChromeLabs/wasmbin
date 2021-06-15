@@ -9,6 +9,11 @@ repository = "https://github.com/GoogleChromeLabs/wasmbin"
 categories = ["wasm", "parser-implementations"]
 keywords = ["webassembly", "wasm", "parser", "serializer"]
 
+exclude = [
+    "tests/testsuite",
+    "benches/fixture.wasm",
+]
+
 [dependencies]
 leb128 = "0.2.4"
 thiserror = "1.0.9"
