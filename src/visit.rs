@@ -109,7 +109,7 @@ pub trait Visit: 'static + Sized {
         &'a self,
         f: &mut F,
     ) -> Result<(), VisitError<E>> {
-        if let Some(v) = std::any::Any::downcast_ref(self) {
+        if let Some(v) = <dyn std::any::Any>::downcast_ref(self) {
             f(v).map_err(VisitError::Custom)?;
         }
         self.visit_children(f)
@@ -119,7 +119,7 @@ pub trait Visit: 'static + Sized {
         &mut self,
         f: &mut F,
     ) -> Result<(), VisitError<E>> {
-        if let Some(v) = std::any::Any::downcast_mut(self) {
+        if let Some(v) = <dyn std::any::Any>::downcast_mut(self) {
             f(v).map_err(VisitError::Custom)?;
         }
         self.visit_children_mut(f)
