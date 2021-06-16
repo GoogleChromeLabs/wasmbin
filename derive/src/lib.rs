@@ -82,7 +82,7 @@ fn is_newtype_like(v: &VariantInfo) -> bool {
     matches!(v.ast().fields, fields @ syn::Fields::Unnamed(_) if fields.len() == 1)
 }
 
-fn add_field_path_item(
+fn track_err_in_field(
     mut res: proc_macro2::TokenStream,
     v: &VariantInfo,
     field: &syn::Field,
@@ -98,10 +98,28 @@ fn add_field_path_item(
     res
 }
 
+fn track_err_in_variant(
+    res: proc_macro2::TokenStream,
+    v: &VariantInfo,
+) -> proc_macro2::TokenStream {
+    let variant_name = v.ast().ident.to_string();
+    quote!(#res.map_err(|err| err.in_path(PathItem::Variant(#variant_name))))
+}
+
+fn catch_expr(
+    res: proc_macro2::TokenStream,
+    err: proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    quote!(
+        (move || -> Result<_, #err> {
+            Ok({ #res })
+        })()
+    )
+}
+
 fn gen_decode(v: &VariantInfo) -> proc_macro2::TokenStream {
     v.construct(|field, index| {
-        let mut res = quote!(Decode::decode(r));
-        res = add_field_path_item(res, v, field, index);
+        let res = track_err_in_field(quote!(Decode::decode(r)), v, field, index);
         quote!(#res?)
     })
 }
@@ -140,13 +158,10 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                         let encode = gen_encode_discriminant(&repr, &discriminant);
                         (quote!(#pat => #encode,)).to_tokens(&mut encode_discriminant);
 
-                        let construct = gen_decode(v);
-                        let variant_name = v.ast().ident.to_string();
+                        let decode =
+                            track_err_in_variant(catch_expr(gen_decode(v), quote!(DecodeError)), v);
                         (quote!(
-                            #discriminant => (move || -> Result<_, DecodeError> {
-                                Ok(#construct)
-                            })()
-                            .map_err(|err| err.in_path(PathItem::Variant(#variant_name)))?,
+                            #discriminant => #decode?,
                         ))
                         .to_tokens(&mut decoders);
                     }
@@ -284,21 +299,14 @@ fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
         let body = s.each_variant(|v| {
             let res = v.bindings().iter().enumerate().map(|(i, bi)| {
                 let res = quote!(Visit::#method(#bi, f));
-                add_field_path_item(res, v, bi.ast(), i)
+                track_err_in_field(res, v, bi.ast(), i)
             });
-            let res = quote!(#(#res?;)*);
-            match s.ast().data {
-                syn::Data::Enum(_) => {
-                    let variant_name = v.ast().ident.to_string();
-                    quote!(
-                        (|| -> Result<(), VisitError<VisitE>> {
-                            #res
-                            Ok(())
-                        })().map_err(|err| err.in_path(PathItem::Variant(#variant_name)))?
-                    )
-                }
-                _ => res,
+            let mut res = quote!(#(#res?;)*);
+            if let syn::Data::Enum(_) = s.ast().data {
+                res = track_err_in_variant(catch_expr(res, quote!(VisitError<VisitE>)), v);
+                res = quote!(#res?);
             }
+            res
         });
         quote!(
             match self { #body }

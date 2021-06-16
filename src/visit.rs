@@ -40,7 +40,7 @@ impl<E: std::fmt::Debug> std::fmt::Debug for VisitError<E> {
 impl<E: std::error::Error> std::error::Error for VisitError<E> {}
 
 impl<E> VisitError<E> {
-    pub fn in_path(self, item: PathItem) -> Self {
+    pub(crate) fn in_path(self, item: PathItem) -> Self {
         match self {
             VisitError::LazyDecode(err) => VisitError::LazyDecode(err.in_path(item)),
             err => err,

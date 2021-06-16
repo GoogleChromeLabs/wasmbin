@@ -45,9 +45,8 @@ pub enum DecodeErrorKind {
     },
 }
 
-#[doc(hidden)]
 #[derive(Debug)]
-pub enum PathItem {
+pub(crate) enum PathItem {
     Name(&'static str),
     Index(usize),
     Variant(&'static str),
@@ -61,8 +60,7 @@ pub struct DecodeError {
 }
 
 impl DecodeError {
-    #[doc(hidden)]
-    pub fn in_path(mut self, item: PathItem) -> Self {
+    pub(crate) fn in_path(mut self, item: PathItem) -> Self {
         self.path.push(item);
         self
     }
