@@ -14,7 +14,7 @@
 
 use crate::builtins::FloatConst;
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
-use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
+use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::types::BlockType;
 #[cfg(feature = "bulk-memory-operations")]
 use crate::types::RefType;
@@ -54,7 +54,11 @@ impl Decode for Vec<Instruction> {
                 },
                 _ => {}
             }
-            res.push(Instruction::decode_with_discriminant(op_code, r)?);
+            let i = res.len();
+            res.push(
+                Instruction::decode_with_discriminant(op_code, r)
+                    .map_err(move |err| err.in_path(PathItem::Index(i)))?,
+            );
         }
         Ok(res)
     }

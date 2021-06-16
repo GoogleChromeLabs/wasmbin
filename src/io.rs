@@ -16,7 +16,7 @@ use thiserror::Error;
 pub use wasmbin_derive::Wasmbin;
 
 #[derive(Error, Debug)]
-pub enum DecodeError {
+pub enum DecodeErrorKind {
     #[error("{0}")]
     Io(#[from] std::io::Error),
 
@@ -45,13 +45,57 @@ pub enum DecodeError {
     },
 }
 
-impl From<std::num::TryFromIntError> for DecodeError {
-    fn from(_err: std::num::TryFromIntError) -> Self {
-        DecodeError::Leb128(leb128::read::Error::Overflow)
+#[doc(hidden)]
+#[derive(Debug)]
+pub enum PathItem {
+    Name(&'static str),
+    Index(usize),
+    Variant(&'static str),
+}
+
+#[derive(Error, Debug)]
+pub struct DecodeError {
+    path: Vec<PathItem>,
+    pub kind: DecodeErrorKind,
+}
+
+impl DecodeError {
+    #[doc(hidden)]
+    pub fn in_path(mut self, item: PathItem) -> Self {
+        self.path.push(item);
+        self
     }
 }
 
-impl From<std::convert::Infallible> for DecodeError {
+impl<E: Into<DecodeErrorKind>> From<E> for DecodeError {
+    fn from(err: E) -> DecodeError {
+        DecodeError {
+            path: vec![],
+            kind: err.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for item in self.path.iter().rev() {
+            match *item {
+                PathItem::Name(name) => write!(f, ".{}", name),
+                PathItem::Index(index) => write!(f, "[{}]", index),
+                PathItem::Variant(variant) => write!(f, "::{}", variant),
+            }?;
+        }
+        write!(f, ": {}", self.kind)
+    }
+}
+
+impl From<std::num::TryFromIntError> for DecodeErrorKind {
+    fn from(_err: std::num::TryFromIntError) -> Self {
+        DecodeErrorKind::Leb128(leb128::read::Error::Overflow)
+    }
+}
+
+impl From<std::convert::Infallible> for DecodeErrorKind {
     fn from(err: std::convert::Infallible) -> Self {
         match err {}
     }
@@ -104,10 +148,11 @@ pub trait DecodeWithDiscriminant: Decode {
         r: &mut impl std::io::Read,
     ) -> Result<Self, DecodeError> {
         Self::maybe_decode_with_discriminant(discriminant, r)?.ok_or_else(|| {
-            DecodeError::UnsupportedDiscriminant {
+            DecodeErrorKind::UnsupportedDiscriminant {
                 ty: Self::NAME,
                 discriminant: discriminant.into(),
             }
+            .into()
         })
     }
 

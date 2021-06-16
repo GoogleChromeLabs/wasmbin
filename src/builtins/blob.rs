@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::builtins::{Lazy, WasmbinCountable};
-use crate::io::{Decode, DecodeError, Encode};
+use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 use arbitrary::Arbitrary;
 
@@ -36,7 +36,7 @@ impl<T: Decode> Decode for RawBlob<T> {
         let mut taken = std::io::Read::take(r, size.into());
         let contents = T::decode(&mut taken)?;
         if taken.limit() != 0 {
-            return Err(DecodeError::UnrecognizedData);
+            return Err(DecodeErrorKind::UnrecognizedData.into());
         }
         Ok(RawBlob { contents })
     }

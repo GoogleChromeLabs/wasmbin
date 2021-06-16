@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::{Decode, DecodeError, Encode};
+use crate::io::{Decode, DecodeError, Encode, PathItem};
 
 pub use wasmbin_derive::WasmbinCountable;
 pub trait WasmbinCountable {}
@@ -39,8 +39,8 @@ where
 impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let count = usize::decode(r)?;
-        std::iter::repeat_with(|| T::decode(r))
-            .take(count)
+        (0..count)
+            .map(|i| T::decode(r).map_err(move |err| err.in_path(PathItem::Index(i))))
             .collect()
     }
 }

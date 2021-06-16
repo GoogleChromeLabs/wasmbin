@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::builtins::Blob;
-use crate::io::{Decode, DecodeError, Encode, Wasmbin};
+use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode, Wasmbin};
 use crate::sections::{Section, StdPayload};
 use crate::visit::Visit;
 use arbitrary::Arbitrary;
@@ -27,7 +27,7 @@ pub struct MagicAndVersion;
 encode_decode_as!(MagicAndVersion, {
     MagicAndVersion <=> MAGIC_AND_VERSION,
 }, |actual| {
-    Err(DecodeError::InvalidMagic { actual })
+    Err(DecodeErrorKind::InvalidMagic { actual }.into())
 });
 
 #[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

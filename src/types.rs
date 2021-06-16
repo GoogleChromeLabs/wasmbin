@@ -14,7 +14,7 @@
 
 use crate::builtins::WasmbinCountable;
 use crate::indices::TypeId;
-use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
+use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
@@ -61,20 +61,26 @@ impl Decode for BlockType {
         if discriminant == OP_CODE_EMPTY_BLOCK {
             return Ok(BlockType::Empty);
         }
-        if let Some(ty) = ValueType::maybe_decode_with_discriminant(discriminant, r)? {
+        if let Some(ty) = ValueType::maybe_decode_with_discriminant(discriminant, r)
+            .map_err(|err| err.in_path(PathItem::Variant("Value")))?
+        {
             return Ok(BlockType::Value(ty));
         }
-        // We have already read one byte that could've been either a
-        // discriminant or a part of an s33 LEB128 specially used for
-        // type indices.
-        //
-        // To recover the LEB128 sequence, we need to chain it back.
-        let buf = [discriminant];
-        let mut r = std::io::Read::chain(&buf[..], r);
-        let as_i64 = i64::decode(&mut r)?;
-        // These indices are encoded as positive signed integers.
-        // Convert them to unsigned integers and error out if they're out of range.
-        let index = u32::try_from(as_i64)?;
+        let index = (move || -> Result<_, DecodeError> {
+            // We have already read one byte that could've been either a
+            // discriminant or a part of an s33 LEB128 specially used for
+            // type indices.
+            //
+            // To recover the LEB128 sequence, we need to chain it back.
+            let buf = [discriminant];
+            let mut r = std::io::Read::chain(&buf[..], r);
+            let as_i64 = i64::decode(&mut r)?;
+            // These indices are encoded as positive signed integers.
+            // Convert them to unsigned integers and error out if they're out of range.
+            let index = u32::try_from(as_i64)?;
+            Ok(index)
+        })()
+        .map_err(|err| err.in_path(PathItem::Variant("MultiValue")))?;
         Ok(BlockType::MultiValue(TypeId { index }))
     }
 }

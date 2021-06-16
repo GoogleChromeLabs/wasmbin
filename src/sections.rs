@@ -17,7 +17,9 @@ use crate::builtins::WasmbinCountable;
 use crate::builtins::{Blob, RawBlob};
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
-use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
+use crate::io::{
+    Decode, DecodeError, DecodeErrorKind, DecodeWithDiscriminant, Encode, PathItem, Wasmbin,
+};
 #[cfg(feature = "bulk-memory-operations")]
 use crate::types::RefType;
 use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
@@ -67,7 +69,11 @@ impl Decode for Vec<NameSubSection> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut sub = Vec::new();
         while let Some(disc) = Option::decode(r)? {
-            sub.push(NameSubSection::decode_with_discriminant(disc, r)?);
+            let i = sub.len();
+            sub.push(
+                NameSubSection::decode_with_discriminant(disc, r)
+                    .map_err(move |err| err.in_path(PathItem::Index(i)))?,
+            );
         }
         Ok(sub)
     }
@@ -430,19 +436,24 @@ impl Decode for Vec<Section> {
         let mut sections = Vec::new();
         let mut last_kind = Kind::Custom;
         while let Some(disc) = Option::decode(r)? {
+            let i = sections.len();
             match Kind::try_from(disc) {
                 Ok(Kind::Custom) | Err(_) => {}
                 Ok(kind) => {
                     if kind <= last_kind {
-                        return Err(DecodeError::SectionOutOfOrder {
+                        return Err(DecodeError::from(DecodeErrorKind::SectionOutOfOrder {
                             prev: last_kind,
                             current: kind,
-                        });
+                        })
+                        .in_path(PathItem::Index(i)));
                     }
                     last_kind = kind;
                 }
             }
-            sections.push(Section::decode_with_discriminant(disc, r)?);
+            sections.push(
+                Section::decode_with_discriminant(disc, r)
+                    .map_err(move |err| err.in_path(PathItem::Index(i)))?,
+            );
         }
         Ok(sections)
     }

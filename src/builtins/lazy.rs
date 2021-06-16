@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::builtins::WasmbinCountable;
-use crate::io::{Decode, DecodeError, Encode};
+use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 use custom_debug::CustomDebug;
@@ -93,7 +93,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Lazy<T> {
 fn decode_raw<T: Decode>(mut raw: &[u8]) -> Result<T, DecodeError> {
     let value = T::decode(&mut raw)?;
     if !raw.is_empty() {
-        return Err(DecodeError::UnrecognizedData);
+        return Err(DecodeErrorKind::UnrecognizedData.into());
     }
     Ok(value)
 }

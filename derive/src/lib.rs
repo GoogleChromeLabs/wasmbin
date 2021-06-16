@@ -79,7 +79,13 @@ fn gen_encode_discriminant(repr: &syn::Type, discriminant: &syn::Expr) -> proc_m
 }
 
 fn gen_decode(v: &VariantInfo) -> proc_macro2::TokenStream {
-    v.construct(|_, _| quote!(Decode::decode(r)?))
+    v.construct(|field, index| {
+        let field_name = match &field.ident {
+            Some(ident) => ident.to_string(),
+            None => index.to_string(),
+        };
+        quote!(Decode::decode(r).map_err(|err| err.in_path(PathItem::Name(#field_name)))?)
+    })
 }
 
 fn parse_repr(s: &Structure) -> syn::Result<syn::Type> {
@@ -117,7 +123,14 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                         (quote!(#pat => #encode,)).to_tokens(&mut encode_discriminant);
 
                         let construct = gen_decode(v);
-                        (quote!(#discriminant => #construct,)).to_tokens(&mut decoders);
+                        let variant_name = v.ast().ident.to_string();
+                        (quote!(
+                            #discriminant => (move || -> Result<_, DecodeError> {
+                                Ok(#construct)
+                            })()
+                            .map_err(|err| err.in_path(PathItem::Variant(#variant_name)))?,
+                        ))
+                        .to_tokens(&mut decoders);
                     }
                     None => {
                         let fields = v.ast().fields;
@@ -224,7 +237,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
     });
 
     s.gen_impl(quote! {
-        use crate::io::{Encode, Decode, DecodeWithDiscriminant, DecodeError};
+        use crate::io::{Encode, Decode, DecodeWithDiscriminant, DecodeError, PathItem};
 
         gen impl Encode for @Self {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {

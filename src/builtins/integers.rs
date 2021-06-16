@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::{Decode, DecodeError, Encode};
+use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 use std::convert::TryFrom;
 
@@ -66,7 +66,7 @@ impl Decode for Option<u8> {
                 Ok(0) => Ok(None),
                 Ok(_) => Ok(Some(dest)),
                 Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(err) => Err(DecodeError::Io(err)),
+                Err(err) => Err(DecodeErrorKind::Io(err).into()),
             };
         }
     }
