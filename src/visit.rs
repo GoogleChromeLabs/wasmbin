@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::DecodeError;
+use crate::io::{DecodeError, PathItem};
 
 pub enum VisitError<E> {
     LazyDecode(DecodeError),
@@ -38,6 +38,15 @@ impl<E: std::fmt::Debug> std::fmt::Debug for VisitError<E> {
 }
 
 impl<E: std::error::Error> std::error::Error for VisitError<E> {}
+
+impl<E> VisitError<E> {
+    pub fn in_path(self, item: PathItem) -> Self {
+        match self {
+            VisitError::LazyDecode(err) => VisitError::LazyDecode(err.in_path(item)),
+            err => err,
+        }
+    }
+}
 
 #[cfg(feature = "nightly")]
 pub type NeverError = !;
@@ -147,8 +156,8 @@ macro_rules! impl_visit_for_iter {
                 &'a self,
                 f: &mut F,
             ) -> Result<(), crate::visit::VisitError<E>> {
-                for v in self {
-                    v.visit_child(f)?;
+                for (i, v) in self.iter().enumerate() {
+                    v.visit_child(f).map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
                 }
                 Ok(())
             }
@@ -157,8 +166,8 @@ macro_rules! impl_visit_for_iter {
                 &mut self,
                 f: &mut F,
             ) -> Result<(), crate::visit::VisitError<E>> {
-                for v in self {
-                    v.visit_child_mut(f)?;
+                for (i, v) in self.iter_mut().enumerate() {
+                    v.visit_child_mut(f).map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
                 }
                 Ok(())
             }

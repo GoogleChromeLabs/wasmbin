@@ -46,4 +46,25 @@ impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
 }
 
 impl_visit_for_iter!(Vec<T>);
-impl_visit_for_iter!(Option<T>);
+
+impl<T: crate::visit::Visit> crate::visit::Visit for Option<T> {
+    fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
+        &'a self,
+        f: &mut F,
+    ) -> Result<(), crate::visit::VisitError<E>> {
+        if let Some(v) = self {
+            v.visit_child(f)?;
+        }
+        Ok(())
+    }
+
+    fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
+        &mut self,
+        f: &mut F,
+    ) -> Result<(), crate::visit::VisitError<E>> {
+        if let Some(v) = self {
+            v.visit_child_mut(f)?;
+        }
+        Ok(())
+    }
+}

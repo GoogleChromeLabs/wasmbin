@@ -56,6 +56,7 @@ pub enum PathItem {
 #[derive(Error, Debug)]
 pub struct DecodeError {
     path: Vec<PathItem>,
+    #[source]
     pub kind: DecodeErrorKind,
 }
 
@@ -78,6 +79,7 @@ impl<E: Into<DecodeErrorKind>> From<E> for DecodeError {
 
 impl std::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("(root)")?;
         for item in self.path.iter().rev() {
             match *item {
                 PathItem::Name(name) => write!(f, ".{}", name),

@@ -78,13 +78,31 @@ fn gen_encode_discriminant(repr: &syn::Type, discriminant: &syn::Expr) -> proc_m
     quote!(<#repr as Encode>::encode(&#discriminant, w)?)
 }
 
-fn gen_decode(v: &VariantInfo) -> proc_macro2::TokenStream {
-    v.construct(|field, index| {
+fn is_newtype_like(v: &VariantInfo) -> bool {
+    matches!(v.ast().fields, fields @ syn::Fields::Unnamed(_) if fields.len() == 1)
+}
+
+fn add_field_path_item(
+    mut res: proc_macro2::TokenStream,
+    v: &VariantInfo,
+    field: &syn::Field,
+    index: usize,
+) -> proc_macro2::TokenStream {
+    if !is_newtype_like(v) {
         let field_name = match &field.ident {
             Some(ident) => ident.to_string(),
             None => index.to_string(),
         };
-        quote!(Decode::decode(r).map_err(|err| err.in_path(PathItem::Name(#field_name)))?)
+        res = quote!(#res.map_err(|err| err.in_path(PathItem::Name(#field_name))));
+    }
+    res
+}
+
+fn gen_decode(v: &VariantInfo) -> proc_macro2::TokenStream {
+    v.construct(|field, index| {
+        let mut res = quote!(Decode::decode(r));
+        res = add_field_path_item(res, v, field, index);
+        quote!(#res?)
     })
 }
 
@@ -260,30 +278,49 @@ fn wasmbin_countable_derive(s: Structure) -> proc_macro2::TokenStream {
 fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
     s.bind_with(|_| synstructure::BindStyle::Move);
 
-    let visit_children_body = s.each(|bi| {
-        quote! {
-            Visit::visit_child(#bi, f)?
-        }
-    });
+    fn generate_visit_body(s: &Structure, method: &'static str) -> proc_macro2::TokenStream {
+        let method = proc_macro2::Ident::new(method, proc_macro2::Span::call_site());
 
-    let visit_children_mut_body = s.each(|bi| {
-        quote! {
-            Visit::visit_child_mut(#bi, f)?
-        }
-    });
+        let body = s.each_variant(|v| {
+            let res = v.bindings().iter().enumerate().map(|(i, bi)| {
+                let res = quote!(Visit::#method(#bi, f));
+                add_field_path_item(res, v, bi.ast(), i)
+            });
+            let res = quote!(#(#res?;)*);
+            match s.ast().data {
+                syn::Data::Enum(_) => {
+                    let variant_name = v.ast().ident.to_string();
+                    quote!(
+                        (|| -> Result<(), VisitError<VisitE>> {
+                            #res
+                            Ok(())
+                        })().map_err(|err| err.in_path(PathItem::Variant(#variant_name)))?
+                    )
+                }
+                _ => res,
+            }
+        });
+        quote!(
+            match self { #body }
+            Ok(())
+        )
+    }
+
+    let visit_children_body = generate_visit_body(&s, "visit_child");
+
+    let visit_children_mut_body = generate_visit_body(&s, "visit_child_mut");
 
     s.gen_impl(quote! {
         use crate::visit::{Visit, VisitError};
+        use crate::io::PathItem;
 
         gen impl Visit for @Self where Self: 'static {
             fn visit_children<'a, VisitT: 'static, VisitE, VisitF: FnMut(&'a VisitT) -> Result<(), VisitE>>(&'a self, f: &mut VisitF) -> Result<(), VisitError<VisitE>> {
-                match self { #visit_children_body }
-                Ok(())
+                #visit_children_body
             }
 
             fn visit_children_mut<VisitT: 'static, VisitE, VisitF: FnMut(&mut VisitT) -> Result<(), VisitE>>(&mut self, f: &mut VisitF) -> Result<(), VisitError<VisitE>> {
-                match self { #visit_children_mut_body }
-                Ok(())
+                #visit_children_mut_body
             }
         }
     })
