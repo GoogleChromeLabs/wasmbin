@@ -102,7 +102,14 @@ fn track_err_in_variant(
     res: proc_macro2::TokenStream,
     v: &VariantInfo,
 ) -> proc_macro2::TokenStream {
-    let variant_name = v.ast().ident.to_string();
+    use std::fmt::Write;
+
+    let mut variant_name = String::new();
+    if let Some(prefix) = v.prefix {
+        write!(variant_name, "{}::", prefix).unwrap();
+    }
+    write!(variant_name, "{}", v.ast().ident).unwrap();
+
     quote!(#res.map_err(|err| err.in_path(PathItem::Variant(#variant_name))))
 }
 
@@ -118,10 +125,13 @@ fn catch_expr(
 }
 
 fn gen_decode(v: &VariantInfo) -> proc_macro2::TokenStream {
-    v.construct(|field, index| {
+    let mut res = v.construct(|field, index| {
         let res = track_err_in_field(quote!(Decode::decode(r)), v, field, index);
         quote!(#res?)
-    })
+    });
+    res = catch_expr(res, quote!(DecodeError));
+    res = track_err_in_variant(res, v);
+    res
 }
 
 fn parse_repr(s: &Structure) -> syn::Result<syn::Type> {
@@ -158,8 +168,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                         let encode = gen_encode_discriminant(&repr, &discriminant);
                         (quote!(#pat => #encode,)).to_tokens(&mut encode_discriminant);
 
-                        let decode =
-                            track_err_in_variant(catch_expr(gen_decode(v), quote!(DecodeError)), v);
+                        let decode = gen_decode(v);
                         (quote!(
                             #discriminant => #decode?,
                         ))
@@ -234,10 +243,10 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                                 type Discriminant = u8;
 
                                 fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
-                                    Ok(match discriminant {
-                                        #discriminant => Some(#decode),
-                                        _ => None
-                                    })
+                                    match discriminant {
+                                        #discriminant => #decode.map(Some),
+                                        _ => Ok(None),
+                                    }
                                 }
                             }
 
@@ -254,7 +263,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     quote! {
                         gen impl Decode for @Self {
                             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                                Ok(#decode)
+                                #decode
                             }
                         }
                     },
@@ -302,11 +311,9 @@ fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
                 track_err_in_field(res, v, bi.ast(), i)
             });
             let mut res = quote!(#(#res?;)*);
-            if let syn::Data::Enum(_) = s.ast().data {
-                res = track_err_in_variant(catch_expr(res, quote!(VisitError<VisitE>)), v);
-                res = quote!(#res?);
-            }
-            res
+            res = catch_expr(res, quote!(VisitError<VisitE>));
+            res = track_err_in_variant(res, v);
+            quote!(#res?)
         });
         quote!(
             match self { #body }

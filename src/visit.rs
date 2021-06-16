@@ -41,6 +41,7 @@ impl<E: std::error::Error> std::error::Error for VisitError<E> {}
 
 impl<E> VisitError<E> {
     pub(crate) fn in_path(self, item: PathItem) -> Self {
+        #[allow(clippy::match_wildcard_for_single_variants)]
         match self {
             VisitError::LazyDecode(err) => VisitError::LazyDecode(err.in_path(item)),
             err => err,

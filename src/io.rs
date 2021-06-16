@@ -82,7 +82,7 @@ impl std::fmt::Display for DecodeError {
             match *item {
                 PathItem::Name(name) => write!(f, ".{}", name),
                 PathItem::Index(index) => write!(f, "[{}]", index),
-                PathItem::Variant(variant) => write!(f, "::{}", variant),
+                PathItem::Variant(variant) => write!(f, ":<{}>", variant),
             }?;
         }
         write!(f, ": {}", self.kind)

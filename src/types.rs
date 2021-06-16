@@ -62,7 +62,7 @@ impl Decode for BlockType {
             return Ok(BlockType::Empty);
         }
         if let Some(ty) = ValueType::maybe_decode_with_discriminant(discriminant, r)
-            .map_err(|err| err.in_path(PathItem::Variant("Value")))?
+            .map_err(|err| err.in_path(PathItem::Variant("BlockType::Value")))?
         {
             return Ok(BlockType::Value(ty));
         }
@@ -80,7 +80,7 @@ impl Decode for BlockType {
             let index = u32::try_from(as_i64)?;
             Ok(index)
         })()
-        .map_err(|err| err.in_path(PathItem::Variant("MultiValue")))?;
+        .map_err(|err| err.in_path(PathItem::Variant("BlockType::MultiValue")))?;
         Ok(BlockType::MultiValue(TypeId { index }))
     }
 }

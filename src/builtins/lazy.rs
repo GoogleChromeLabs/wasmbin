@@ -175,7 +175,7 @@ impl<T: Arbitrary> Arbitrary for Lazy<T> {
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
         match &self.status {
             LazyStatus::Output { value } => Box::new(value.shrink().map(Self::from)),
-            _ => unreachable!(),
+            LazyStatus::FromInput { .. } => unreachable!(),
         }
     }
 }
