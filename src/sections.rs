@@ -24,7 +24,7 @@ use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType}
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
-use custom_debug::CustomDebug;
+use custom_debug::Debug as CustomDebug;
 use std::convert::TryFrom;
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

@@ -44,9 +44,9 @@ macro_rules! def_lane_idx {
             }
         }
 
-        impl Arbitrary for $name {
+        impl<'a> Arbitrary<'a> for $name {
             #[allow(clippy::range_minus_one)]
-            fn arbitrary(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Self> {
+            fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
                 u.int_in_range(0..=($num - 1)).map(Self)
             }
         }

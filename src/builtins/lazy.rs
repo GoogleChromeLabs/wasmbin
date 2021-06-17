@@ -16,7 +16,7 @@ use crate::builtins::WasmbinCountable;
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
-use custom_debug::CustomDebug;
+use custom_debug::Debug as CustomDebug;
 use once_cell::sync::OnceCell;
 use std::hash::Hash;
 
@@ -159,24 +159,17 @@ impl<T: Decode + Hash> Hash for Lazy<T> {
     }
 }
 
-impl<T: Arbitrary> Arbitrary for Lazy<T> {
-    fn arbitrary(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Self> {
+impl<'a, T: Arbitrary<'a>> Arbitrary<'a> for Lazy<T> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         T::arbitrary(u).map(Self::from)
     }
 
-    fn arbitrary_take_rest(u: arbitrary::Unstructured) -> arbitrary::Result<Self> {
+    fn arbitrary_take_rest(u: arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         T::arbitrary_take_rest(u).map(Self::from)
     }
 
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
         T::size_hint(depth)
-    }
-
-    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-        match &self.status {
-            LazyStatus::Output { value } => Box::new(value.shrink().map(Self::from)),
-            LazyStatus::FromInput { .. } => unreachable!(),
-        }
     }
 }
 
