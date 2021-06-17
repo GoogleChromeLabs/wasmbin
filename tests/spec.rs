@@ -171,13 +171,11 @@ fn unlazify<T: Visit>(mut wasm: T) -> Result<T, DecodeError> {
 
 #[throws]
 fn run_test(test: &WasmTest) {
-    let mut slice = test.module.as_slice();
-    let module = match (Module::decode_from(&mut slice).and_then(unlazify), &test.expect_result) {
+    let module = match (Module::decode_from(&mut test.module.as_slice()).and_then(unlazify), &test.expect_result) {
         (Ok(ref module), Err(err)) => bail!("Expected an invalid module definition with an error: {}\nParsed part: {:02X?}\nGot module: {:02X?}", err, test.module, module),
         (Err(err), Ok(())) => bail!(
-            "Expected a valid module definition, but got an error\nParsed part: {:02X?}\nUnparsed part: {:02X?}\nError: {:#}",
-            &test.module[..test.module.len() - slice.len()],
-            slice,
+            "Expected a valid module definition, but got an error\nModule: {:02X?}\nError: {:#}",
+            test.module,
             err
         ),
         (Ok(module), Ok(())) => module,
