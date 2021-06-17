@@ -50,16 +50,12 @@ macro_rules! newtype_id {
     };
 }
 
-newtype_id!(TypeId);
-newtype_id!(FuncId);
-newtype_id!(TableId);
-newtype_id!(MemId);
-newtype_id!(GlobalId);
-newtype_id!(LocalId);
-newtype_id!(LabelId);
-
-#[cfg(feature = "bulk-memory-operations")]
-newtype_id!(ElemId);
-
-#[cfg(feature = "bulk-memory-operations")]
 newtype_id!(DataId);
+newtype_id!(ElemId);
+newtype_id!(FuncId);
+newtype_id!(GlobalId);
+newtype_id!(LabelId);
+newtype_id!(LocalId);
+newtype_id!(MemId);
+newtype_id!(TableId);
+newtype_id!(TypeId);

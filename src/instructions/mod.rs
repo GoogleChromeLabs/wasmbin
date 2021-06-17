@@ -15,11 +15,7 @@
 use crate::builtins::FloatConst;
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
-use crate::types::BlockType;
-#[cfg(feature = "bulk-memory-operations")]
-use crate::types::RefType;
-#[cfg(feature = "reference-types")]
-use crate::types::ValueType;
+use crate::types::{BlockType, RefType, ValueType};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
@@ -106,16 +102,13 @@ pub enum Instruction {
     ReturnCallIndirect(CallIndirect) = 0x13,
     Drop = 0x1A,
     Select = 0x1B,
-    #[cfg(feature = "reference-types")]
     SelectWithTypes(Vec<ValueType>) = 0x1C,
     LocalGet(LocalId) = 0x20,
     LocalSet(LocalId) = 0x21,
     LocalTee(LocalId) = 0x22,
     GlobalGet(GlobalId) = 0x23,
     GlobalSet(GlobalId) = 0x24,
-    #[cfg(feature = "reference-types")]
     TableGet(TableId) = 0x25,
-    #[cfg(feature = "reference-types")]
     TableSet(TableId) = 0x26,
     I32Load(MemArg) = 0x28,
     I64Load(MemArg) = 0x29,
@@ -274,11 +267,8 @@ pub enum Instruction {
     I64Extend8S = 0xC2,
     I64Extend16S = 0xC3,
     I64Extend32S = 0xC4,
-    #[cfg(feature = "bulk-memory-operations")]
     RefNull(RefType) = 0xD0,
-    #[cfg(feature = "reference-types")]
     RefIsNull = 0xD1,
-    #[cfg(feature = "bulk-memory-operations")]
     RefFunc(FuncId) = 0xD2,
     Misc(Misc) = 0xFC,
     #[cfg(feature = "simd")]

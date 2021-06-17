@@ -23,9 +23,7 @@ use wasmbin::Module;
 #[derive(StructOpt)]
 enum DumpSection {
     All,
-    Custom {
-        name: String,
-    },
+    Custom { name: String },
     Type,
     Import,
     Function,
@@ -35,7 +33,6 @@ enum DumpSection {
     Export,
     Start,
     Element,
-    #[cfg(feature = "bulk-memory-operations")]
     DataCount,
     Code,
     Data,
@@ -100,7 +97,6 @@ fn main() {
         DumpSection::Export => Box::new(|s| s.kind() == Kind::Export),
         DumpSection::Start => Box::new(|s| s.kind() == Kind::Start),
         DumpSection::Element => Box::new(|s| s.kind() == Kind::Element),
-        #[cfg(feature = "bulk-memory-operations")]
         DumpSection::DataCount => Box::new(|s| s.kind() == Kind::DataCount),
         DumpSection::Code => Box::new(|s| s.kind() == Kind::Code),
         DumpSection::Data => Box::new(|s| s.kind() == Kind::Data),

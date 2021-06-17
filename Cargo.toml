@@ -25,17 +25,15 @@ arbitrary = { version = "0.4.1", features = ["derive"] }
 [features]
 default = []
 nightly = ["criterion/real_blackbox", "wasmbin-derive/nightly"]
-proposals = ["tail-call", "simd", "reference-types", "threads"]
+proposals = ["tail-call", "simd", "threads"]
 tail-call = []
-bulk-memory-operations = []
 simd = []
-reference-types = ["bulk-memory-operations"]
 threads = []
 
 [dev-dependencies]
 criterion = "0.3.1"
 libtest-mimic = "0.3.0"
-wast = "25.0.2"
+wast = "36.0.0"
 fehler = "1.0.0"
 anyhow = "1.0.31"
 tempfile = "3.1.0"

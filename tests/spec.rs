@@ -37,20 +37,28 @@ const IGNORED_ERRORS: &[&str] = &[
 ];
 
 const IGNORED_MODULES: &[&[u8]] = &[
-    // See https://github.com/WebAssembly/bulk-memory-operations/issues/153.
+    // These are outdated tests in WebAssembly/testsuite itself.
+    // It needs updating, but see https://github.com/WebAssembly/testsuite/pull/39#issuecomment-863496809.
     &[
-        0x00, b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x00, 0x00, 0x0B, 0x07,
+        0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x00, 0x00, 0x0B, 0x07,
         0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00,
     ],
-    // See https://github.com/WebAssembly/bulk-memory-operations/issues/153.
     &[
-        0x00, b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00, 0x04, 0x04, 0x01, 0x70, 0x00, 0x00, 0x09,
+        0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x04, 0x04, 0x01, 0x70, 0x00, 0x00, 0x09,
         0x07, 0x01, 0x80, 0x00, 0x41, 0x00, 0x0B, 0x00,
     ],
-    // An `assert_malformed` test in bulk-memory proposal that becomes well-formed when threads are enabled.
-    #[cfg(all(feature = "bulk-memory-operations", feature = "threads"))]
     &[
-        0x00, b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x02, 0x00,
+        0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x00, 0x00, 0x0B, 0x06,
+        0x01, 0x01, 0x41, 0x00, 0x0B, 0x00,
+    ],
+    &[
+        0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x0B, 0x06, 0x01, 0x01, 0x41, 0x00, 0x0B,
+        0x00,
+    ],
+    // Upstream malformed test that becomes well-formed if threads are enabled.
+    #[cfg(feature = "threads")]
+    &[
+        0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x02, 0x00,
     ],
 ];
 
@@ -60,7 +68,7 @@ struct WasmTest {
 }
 
 #[throws]
-fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malformed: bool) {
+fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
     let src = read_to_string(path)?;
     let set_err_path_text = |mut err: wast::Error| {
         err.set_path(path);
@@ -108,7 +116,7 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
             is_ignored: IGNORED_MODULES.contains(&module.as_slice())
                 || match &expect_result {
                     Ok(()) => false,
-                    Err(err) => ignore_malformed || IGNORED_ERRORS.contains(&err.as_str()),
+                    Err(err) => IGNORED_ERRORS.contains(&err.as_str()),
                 },
             is_bench: false,
             data: WasmTest {
@@ -120,43 +128,39 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malf
 }
 
 #[throws]
-fn read_tests_from_dir(path: &Path, dest: &mut Vec<Test<WasmTest>>, ignore_malformed: bool) {
+fn read_tests_from_dir(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
     for file in read_dir(path)? {
         let path = file?.path();
         if path.extension().map_or(false, |ext| ext == "wast") {
-            read_tests_from_file(&path, dest, ignore_malformed)?;
+            read_tests_from_file(&path, dest)?;
         }
     }
 }
 
 #[throws]
-fn read_all_tests(path: &Path) -> (Vec<Test<WasmTest>>, bool) {
+fn read_all_tests(path: &Path) -> Vec<Test<WasmTest>> {
     let mut tests = Vec::new();
     let proposals_dir = path.join("proposals");
 
     macro_rules! read_proposal_tests {
         ($name:literal) => {
             if cfg!(feature = $name) {
-                read_tests_from_dir(&proposals_dir.join($name), &mut tests, false).context($name)?
+                read_tests_from_dir(&proposals_dir.join($name), &mut tests).context($name)?
             }
         };
     }
 
-    read_proposal_tests!("bulk-memory-operations");
-    read_proposal_tests!("reference-types");
-    read_proposal_tests!("simd");
     read_proposal_tests!("tail-call");
+    read_proposal_tests!("simd");
     read_proposal_tests!("threads");
 
-    let has_proposals = !tests.is_empty();
-
-    read_tests_from_dir(path, &mut tests, has_proposals)?;
+    read_tests_from_dir(path, &mut tests)?;
 
     if tests.is_empty() {
         bail!("Couldn't find any tests. Did you run `git submodule update --init`?");
     }
 
-    (tests, has_proposals)
+    tests
 }
 
 fn unlazify<T: Visit>(mut wasm: T) -> Result<T, DecodeError> {
@@ -200,7 +204,7 @@ fn run_test(test: &WasmTest) {
 
 #[throws]
 fn main() {
-    let (tests, has_proposals) = read_all_tests(&Path::new("tests").join("testsuite"))?;
+    let tests = read_all_tests(&Path::new("tests").join("testsuite"))?;
 
     run_tests(&Arguments::from_args(), tests, |test| {
         match run_test(&test.data) {
@@ -211,11 +215,4 @@ fn main() {
         }
     })
     .exit_if_failed();
-
-    if has_proposals {
-        eprintln!(
-            "Proposals were enabled, so upstream `assert_malformed` tests were ignored.\n\
-             Re-run without any proposals enabled for the full upstream test coverage."
-        );
-    }
 }

@@ -23,7 +23,7 @@ use std::fmt::{self, Debug, Formatter};
 
 const OP_CODE_EMPTY_BLOCK: u8 = 0x40;
 
-#[cfg_attr(feature = "reference-types", wasmbin_discriminants)]
+#[wasmbin_discriminants]
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ValueType {
@@ -33,7 +33,6 @@ pub enum ValueType {
     F32 = 0x7D,
     I64 = 0x7E,
     I32 = 0x7F,
-    #[cfg(feature = "reference-types")]
     Ref(RefType),
 }
 
@@ -170,7 +169,6 @@ encode_decode_as!(MemType, {
 #[repr(u8)]
 pub enum RefType {
     Func = 0x70,
-    #[cfg(feature = "reference-types")]
     Extern = 0x6F,
 }
 

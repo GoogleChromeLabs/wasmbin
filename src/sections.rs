@@ -20,9 +20,7 @@ use crate::instructions::Expression;
 use crate::io::{
     Decode, DecodeError, DecodeErrorKind, DecodeWithDiscriminant, Encode, PathItem, Wasmbin,
 };
-#[cfg(feature = "bulk-memory-operations")]
-use crate::types::RefType;
-use crate::types::{FuncType, GlobalType, MemType, TableType, ValueType};
+use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
@@ -189,7 +187,6 @@ pub struct Export {
     pub desc: ExportDesc,
 }
 
-#[cfg(feature = "bulk-memory-operations")]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ElemKind {
@@ -204,33 +201,38 @@ pub enum Element {
         offset: Expression,
         funcs: Vec<FuncId>,
     } = 0x00,
-    #[cfg(feature = "bulk-memory-operations")]
-    PassiveWithFuncs { kind: ElemKind, funcs: Vec<FuncId> } = 0x01,
-    #[cfg(feature = "bulk-memory-operations")]
+    PassiveWithFuncs {
+        kind: ElemKind,
+        funcs: Vec<FuncId>,
+    } = 0x01,
     ActiveWithTableAndFuncs {
         table: TableId,
         offset: Expression,
         kind: ElemKind,
         funcs: Vec<FuncId>,
     } = 0x02,
-    #[cfg(feature = "reference-types")]
-    DeclarativeWithFuncs { kind: ElemKind, funcs: Vec<FuncId> } = 0x03,
-    #[cfg(feature = "bulk-memory-operations")]
+    DeclarativeWithFuncs {
+        kind: ElemKind,
+        funcs: Vec<FuncId>,
+    } = 0x03,
     ActiveWithExprs {
         offset: Expression,
         exprs: Vec<Expression>,
     } = 0x04,
-    #[cfg(feature = "bulk-memory-operations")]
-    PassiveWithExprs { ty: RefType, exprs: Vec<Expression> } = 0x05,
-    #[cfg(feature = "bulk-memory-operations")]
+    PassiveWithExprs {
+        ty: RefType,
+        exprs: Vec<Expression>,
+    } = 0x05,
     ActiveWithTableAndExprs {
         table: TableId,
         offset: Expression,
         ty: RefType,
         exprs: Vec<Expression>,
     } = 0x06,
-    #[cfg(feature = "reference-types")]
-    DeclarativeWithExprs { ty: RefType, exprs: Vec<Expression> } = 0x07,
+    DeclarativeWithExprs {
+        ty: RefType,
+        exprs: Vec<Expression>,
+    } = 0x07,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
@@ -251,16 +253,9 @@ pub struct FuncBody {
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum DataInit {
-    Active {
-        offset: Expression,
-    } = 0x00,
-    #[cfg(feature = "bulk-memory-operations")]
+    Active { offset: Expression } = 0x00,
     Passive = 0x01,
-    #[cfg(feature = "bulk-memory-operations")]
-    ActiveWithMemory {
-        memory: MemId,
-        offset: Expression,
-    } = 0x02,
+    ActiveWithMemory { memory: MemId, offset: Expression } = 0x02,
 }
 
 #[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
@@ -416,7 +411,6 @@ define_sections! {
     Export(Vec<super::Export>) = 7,
     Start(super::FuncId) = 8,
     Element(Vec<super::Element>) = 9,
-    #[cfg(feature = "bulk-memory-operations")]
     DataCount(u32) = 12,
     Code(Vec<super::Blob<super::FuncBody>>) = 10,
     Data(Vec<super::Data>) = 11,

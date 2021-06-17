@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "bulk-memory-operations")]
 use crate::indices::{DataId, ElemId, MemId, TableId};
 use crate::io::Wasmbin;
 use crate::visit::Visit;
 use arbitrary::Arbitrary;
 
-#[cfg_attr(feature = "bulk-memory-operations", crate::wasmbin_discriminants)]
+#[crate::wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u32)]
 pub enum Misc {
@@ -30,36 +29,14 @@ pub enum Misc {
     I64TruncSatF32U = 0x05,
     I64TruncSatF64S = 0x06,
     I64TruncSatF64U = 0x07,
-    #[cfg(feature = "bulk-memory-operations")]
-    MemoryInit {
-        data: DataId,
-        mem: MemId,
-    } = 0x08,
-    #[cfg(feature = "bulk-memory-operations")]
+    MemoryInit { data: DataId, mem: MemId } = 0x08,
     DataDrop(DataId) = 0x09,
-    #[cfg(feature = "bulk-memory-operations")]
-    MemoryCopy {
-        dest: MemId,
-        src: MemId,
-    } = 0x0A,
-    #[cfg(feature = "bulk-memory-operations")]
+    MemoryCopy { dest: MemId, src: MemId } = 0x0A,
     MemoryFill(MemId) = 0x0B,
-    #[cfg(feature = "bulk-memory-operations")]
-    TableInit {
-        elem: ElemId,
-        table: TableId,
-    } = 0x0C,
-    #[cfg(feature = "bulk-memory-operations")]
+    TableInit { elem: ElemId, table: TableId } = 0x0C,
     ElemDrop(ElemId) = 0x0D,
-    #[cfg(feature = "bulk-memory-operations")]
-    TableCopy {
-        dest: MemId,
-        src: MemId,
-    } = 0x0E,
-    #[cfg(feature = "reference-types")]
+    TableCopy { dest: MemId, src: MemId } = 0x0E,
     TableGrow(TableId) = 0x0F,
-    #[cfg(feature = "reference-types")]
     TableSize(TableId) = 0x10,
-    #[cfg(feature = "reference-types")]
     TableFill(TableId) = 0x11,
 }

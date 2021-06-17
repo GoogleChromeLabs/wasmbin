@@ -1,6 +1,3 @@
-#[cfg(not(feature = "bulk-memory-operations"))]
-compile_error!("benches/fixture.wasm requires the bulk-memory-operations feature to be enabled.");
-
 // Copyright 2020 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
