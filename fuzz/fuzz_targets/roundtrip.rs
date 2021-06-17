@@ -15,14 +15,32 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
+use wasmbin::io::DecodeError;
+use wasmbin::visit::{Visit, VisitError};
 use wasmbin::Module;
 
+fn unlazify<T: Visit>(wasm: T) -> Result<T, DecodeError> {
+    match wasm.visit(|()| {}) {
+        Ok(()) => Ok(wasm),
+        Err(err) => match err {
+            VisitError::LazyDecode(err) => Err(err),
+            VisitError::Custom(err) => match err {},
+        },
+    }
+}
+
 fuzz_target!(|module: Module| {
-    // Check that we don't fail to encode arbitrary Modules.
-    // We're using Vec as I/O destination, so this should never fail.
-    let encoded = module.encode_into(Vec::new()).unwrap();
+    // We're using Vec as I/O destination, so this should never fail, except
+    // if the module itself is malformed.
+    // In that case, bail out.
+    let encoded = match module.encode_into(Vec::new()) {
+        Ok(encoded) => encoded,
+        Err(_) => return,
+    };
     // Check that we can re-decoded encoded data back.
-    let decoded = Module::decode_from(encoded.as_slice()).unwrap();
+    let decoded = Module::decode_from(encoded.as_slice())
+        .and_then(unlazify)
+        .unwrap();
     // Ensure that re-decoded module is equivalent to the original.
     assert_eq!(module, decoded);
     // Check that encoding again results in a deterministic output.

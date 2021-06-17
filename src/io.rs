@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::sections::SectionOrderError;
 use thiserror::Error;
 pub use wasmbin_derive::Wasmbin;
 
@@ -38,11 +39,8 @@ pub enum DecodeErrorKind {
     #[error("Unrecognized data")]
     UnrecognizedData,
 
-    #[error("Section out of order: {current:?} after {prev:?}")]
-    SectionOutOfOrder {
-        current: crate::sections::Kind,
-        prev: crate::sections::Kind,
-    },
+    #[error("{0}")]
+    SectionOutOfOrder(#[from] SectionOrderError),
 }
 
 #[derive(Debug)]

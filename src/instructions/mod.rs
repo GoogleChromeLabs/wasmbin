@@ -19,17 +19,65 @@ use crate::types::{BlockType, RefType, ValueType};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
+use thiserror::Error;
 
 const OP_CODE_BLOCK_START: u8 = 0x02;
 const OP_CODE_LOOP_START: u8 = 0x03;
 const OP_CODE_IF_START: u8 = 0x04;
 const OP_CODE_END: u8 = 0x0B;
 
+#[derive(Debug, Error)]
+#[error("Mismatched block depth")]
+struct DepthError;
+
+impl From<DepthError> for std::io::Error {
+    fn from(err: DepthError) -> Self {
+        Self::new(std::io::ErrorKind::InvalidData, err)
+    }
+}
+
+#[derive(Default)]
+struct DepthTracker {
+    depth: u32,
+}
+
+impl DepthTracker {
+    pub fn inc(&mut self) {
+        self.depth += 1;
+    }
+
+    // Returns a bool indicating whether to continue, or an error state.
+    pub fn try_dec(&mut self) -> Result<(), DepthError> {
+        self.depth = self.depth.checked_sub(1).ok_or(DepthError)?;
+        Ok(())
+    }
+
+    pub fn assert_end(self) -> Result<(), DepthError> {
+        match self.depth {
+            0 => Ok(()),
+            _ => Err(DepthError),
+        }
+    }
+}
+
 impl Encode for [Instruction] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        let mut depth_tracker = DepthTracker::default();
         for instr in self {
+            match instr {
+                Instruction::BlockStart(_)
+                | Instruction::LoopStart(_)
+                | Instruction::IfStart(_) => {
+                    depth_tracker.inc();
+                }
+                Instruction::End => {
+                    depth_tracker.try_dec()?;
+                }
+                _ => {}
+            }
             instr.encode(w)?;
         }
+        depth_tracker.assert_end()?;
         OP_CODE_END.encode(w)
     }
 }
@@ -37,17 +85,18 @@ impl Encode for [Instruction] {
 impl Decode for Vec<Instruction> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut res = Vec::new();
-        let mut depth: usize = 0;
+        let mut depth_tracker = DepthTracker::default();
         loop {
             let op_code = u8::decode(r)?;
             match op_code {
                 OP_CODE_BLOCK_START | OP_CODE_LOOP_START | OP_CODE_IF_START => {
-                    depth += 1;
+                    depth_tracker.inc();
                 }
-                OP_CODE_END => match depth.checked_sub(1) {
-                    Some(new_depth) => depth = new_depth,
-                    None => break,
-                },
+                OP_CODE_END => {
+                    if depth_tracker.try_dec().is_err() {
+                        break;
+                    }
+                }
                 _ => {}
             }
             let i = res.len();

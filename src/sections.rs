@@ -26,6 +26,7 @@ use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use custom_debug::Debug as CustomDebug;
 use std::convert::TryFrom;
+use thiserror::Error;
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ModuleNameSubSection {
@@ -416,9 +417,54 @@ define_sections! {
     Data(Vec<super::Data>) = 11,
 }
 
+#[derive(Debug, Error)]
+#[error("Section out of order: {current:?} after {prev:?}")]
+pub struct SectionOrderError {
+    pub current: Kind,
+    pub prev: Kind,
+}
+
+impl From<SectionOrderError> for std::io::Error {
+    fn from(err: SectionOrderError) -> Self {
+        Self::new(std::io::ErrorKind::InvalidData, err)
+    }
+}
+
+struct SectionOrderTracker {
+    last_kind: Kind,
+}
+
+impl Default for SectionOrderTracker {
+    fn default() -> Self {
+        Self {
+            last_kind: Kind::Custom,
+        }
+    }
+}
+
+impl SectionOrderTracker {
+    pub fn try_add(&mut self, section: &Section) -> Result<(), SectionOrderError> {
+        match section.kind() {
+            Kind::Custom => {}
+            kind if kind > self.last_kind => {
+                self.last_kind = kind;
+            }
+            kind => {
+                return Err(SectionOrderError {
+                    prev: self.last_kind,
+                    current: kind,
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Encode for [Section] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        let mut section_order_tracker = SectionOrderTracker::default();
         for section in self {
+            section_order_tracker.try_add(section)?;
             section.encode(w)?;
         }
         Ok(())
@@ -428,26 +474,16 @@ impl Encode for [Section] {
 impl Decode for Vec<Section> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut sections = Vec::new();
-        let mut last_kind = Kind::Custom;
+        let mut section_order_tracker = SectionOrderTracker::default();
         while let Some(disc) = Option::decode(r)? {
             let i = sections.len();
-            match Kind::try_from(disc) {
-                Ok(Kind::Custom) | Err(_) => {}
-                Ok(kind) => {
-                    if kind <= last_kind {
-                        return Err(DecodeError::from(DecodeErrorKind::SectionOutOfOrder {
-                            prev: last_kind,
-                            current: kind,
-                        })
-                        .in_path(PathItem::Index(i)));
-                    }
-                    last_kind = kind;
-                }
-            }
-            sections.push(
-                Section::decode_with_discriminant(disc, r)
-                    .map_err(move |err| err.in_path(PathItem::Index(i)))?,
-            );
+            (|| -> Result<(), DecodeError> {
+                let section = Section::decode_with_discriminant(disc, r)?;
+                section_order_tracker.try_add(&section)?;
+                sections.push(section);
+                Ok(())
+            })()
+            .map_err(move |err| err.in_path(PathItem::Index(i)))?;
         }
         Ok(sections)
     }
