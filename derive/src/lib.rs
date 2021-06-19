@@ -302,9 +302,7 @@ fn wasmbin_countable_derive(s: Structure) -> proc_macro2::TokenStream {
 fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
     s.bind_with(|_| synstructure::BindStyle::Move);
 
-    fn generate_visit_body(s: &Structure, method: &'static str) -> proc_macro2::TokenStream {
-        let method = proc_macro2::Ident::new(method, proc_macro2::Span::call_site());
-
+    fn generate_visit_body(s: &Structure, method: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         let body = s.each_variant(|v| {
             let res = v.bindings().iter().enumerate().map(|(i, bi)| {
                 let res = quote!(Visit::#method(#bi, f));
@@ -321,9 +319,9 @@ fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
         )
     }
 
-    let visit_children_body = generate_visit_body(&s, "visit_child");
+    let visit_children_body = generate_visit_body(&s, quote!(visit_child));
 
-    let visit_children_mut_body = generate_visit_body(&s, "visit_child_mut");
+    let visit_children_mut_body = generate_visit_body(&s, quote!(visit_child_mut));
 
     s.gen_impl(quote! {
         use crate::visit::{Visit, VisitError};
