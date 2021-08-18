@@ -35,7 +35,7 @@ pub enum Misc {
     MemoryFill(MemId) = 0x0B,
     TableInit { elem: ElemId, table: TableId } = 0x0C,
     ElemDrop(ElemId) = 0x0D,
-    TableCopy { dest: MemId, src: MemId } = 0x0E,
+    TableCopy { dest: TableId, src: TableId } = 0x0E,
     TableGrow(TableId) = 0x0F,
     TableSize(TableId) = 0x10,
     TableFill(TableId) = 0x11,
