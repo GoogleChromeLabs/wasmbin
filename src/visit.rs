@@ -54,7 +54,7 @@ pub type NeverError = !;
 
 #[cfg(not(feature = "nightly"))]
 #[allow(clippy::empty_enum)]
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum NeverError {}
 
 impl From<VisitError<NeverError>> for DecodeError {
