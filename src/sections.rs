@@ -90,6 +90,11 @@ pub struct ProducerVersionedName {
     pub version: String,
 }
 
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+pub struct ExternalUrlSection {
+    pub url_name: String,
+}
+
 #[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawCustomSection {
     pub name: String,
@@ -142,6 +147,10 @@ macro_rules! define_custom_sections {
 define_custom_sections! {
     Name(Vec<NameSubSection>) = "name",
     Producers(Vec<ProducerField>) = "producers",
+    // https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#external-dwarf
+    ExternalDebugInfo(ExternalUrlSection) = "external_debug_info",
+    // https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
+    SourceMappingUrl(ExternalUrlSection) = "sourceMappingURL",
 }
 
 #[wasmbin_discriminants]
