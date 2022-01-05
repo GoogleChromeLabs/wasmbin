@@ -59,3 +59,6 @@ newtype_id!(LocalId);
 newtype_id!(MemId);
 newtype_id!(TableId);
 newtype_id!(TypeId);
+
+#[cfg(feature = "exception-handling")]
+newtype_id!(ExceptionId);
