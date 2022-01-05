@@ -15,11 +15,15 @@
 use crate::builtins::Lazy;
 use crate::builtins::WasmbinCountable;
 use crate::builtins::{Blob, RawBlob};
+#[cfg(feature = "exception-handling")]
+use crate::indices::ExceptionId;
 #[cfg(feature = "extended-name-section")]
 use crate::indices::{DataId, ElemId, LabelId};
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
+#[cfg(feature = "exception-handling")]
+use crate::types::ExceptionType;
 use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
 use crate::visit::{Visit, VisitError};
 use crate::wasmbin_discriminants;
@@ -198,6 +202,8 @@ pub enum ImportDesc {
     Table(TableType) = 0x01,
     Mem(MemType) = 0x02,
     Global(GlobalType) = 0x03,
+    #[cfg(feature = "exception-handling")]
+    Exception(ExceptionType) = 0x04,
 }
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
@@ -226,6 +232,8 @@ pub enum ExportDesc {
     Table(TableId) = 0x01,
     Mem(MemId) = 0x02,
     Global(GlobalId) = 0x03,
+    #[cfg(feature = "exception-handling")]
+    Exception(ExceptionId) = 0x04,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
@@ -286,6 +294,14 @@ pub enum Element {
 pub struct Locals {
     pub repeat: u32,
     pub ty: ValueType,
+}
+
+// https://webassembly.github.io/exception-handling/core/binary/modules.html#exception-section
+#[cfg(feature = "exception-handling")]
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[wasmbin(discriminant = 0x00)]
+pub struct Exception {
+    pub ty: TypeId,
 }
 
 #[derive(
@@ -454,6 +470,8 @@ define_sections! {
     Function(Vec<super::TypeId>) = 3,
     Table(Vec<super::TableType>) = 4,
     Memory(Vec<super::MemType>) = 5,
+    #[cfg(feature = "exception-handling")]
+    Exception(Vec<super::Exception>) = 13,
     Global(Vec<super::Global>) = 6,
     Export(Vec<super::Export>) = 7,
     Start(super::FuncId) = 8,
