@@ -40,7 +40,7 @@ impl<E: std::fmt::Debug> std::fmt::Debug for VisitError<E> {
 impl<E: std::error::Error> std::error::Error for VisitError<E> {}
 
 impl<E> VisitError<E> {
-    pub(crate) fn in_path(self, item: PathItem) -> Self {
+    pub fn in_path(self, item: PathItem) -> Self {
         #[allow(clippy::match_wildcard_for_single_variants)]
         match self {
             VisitError::LazyDecode(err) => VisitError::LazyDecode(err.in_path(item)),
@@ -152,13 +152,13 @@ pub trait Visit: 'static + Sized {
 
 macro_rules! impl_visit_for_iter {
     ($ty:tt $(<$param:ident>)?) => {
-        impl$(<$param: crate::visit::Visit>)? crate::visit::Visit for $ty $(<$param>)? {
+        impl$(<$param: Visit>)? Visit for $ty $(<$param>)? {
             fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
                 &'a self,
                 f: &mut F,
-            ) -> Result<(), crate::visit::VisitError<E>> {
+            ) -> Result<(), VisitError<E>> {
                 for (i, v) in self.iter().enumerate() {
-                    v.visit_child(f).map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
+                    v.visit_child(f).map_err(move |err| err.in_path(PathItem::Index(i)))?;
                 }
                 Ok(())
             }
@@ -166,9 +166,9 @@ macro_rules! impl_visit_for_iter {
             fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
                 &mut self,
                 f: &mut F,
-            ) -> Result<(), crate::visit::VisitError<E>> {
+            ) -> Result<(), VisitError<E>> {
                 for (i, v) in self.iter_mut().enumerate() {
-                    v.visit_child_mut(f).map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
+                    v.visit_child_mut(f).map_err(move |err| err.in_path(PathItem::Index(i)))?;
                 }
                 Ok(())
             }

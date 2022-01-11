@@ -16,7 +16,7 @@ use crate::builtins::FloatConst;
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::types::{BlockType, RefType, ValueType};
-use crate::visit::Visit;
+use crate::visit::{Visit, VisitError};
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use thiserror::Error;

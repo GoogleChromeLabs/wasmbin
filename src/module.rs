@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use crate::builtins::Blob;
-use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode, Wasmbin};
+use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode, PathItem, Wasmbin};
 use crate::sections::{Section, StdPayload};
-use crate::visit::Visit;
+use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 use std::cmp::Ordering;
 

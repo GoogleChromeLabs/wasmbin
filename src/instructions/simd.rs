@@ -14,7 +14,7 @@
 
 use super::MemArg;
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode, Wasmbin};
-use crate::visit::Visit;
+use crate::visit::{Visit, VisitError};
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 

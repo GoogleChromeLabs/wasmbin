@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::DecodeErrorKind;
+use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 
 encode_decode_as!(bool, {

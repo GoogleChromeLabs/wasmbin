@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::builtins::{Lazy, WasmbinCountable};
-use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
-use crate::visit::Visit;
+use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode, PathItem};
+use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

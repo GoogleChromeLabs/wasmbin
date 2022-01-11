@@ -44,7 +44,7 @@ pub enum DecodeErrorKind {
 }
 
 #[derive(Debug)]
-pub(crate) enum PathItem {
+pub enum PathItem {
     Name(&'static str),
     Index(usize),
     Variant(&'static str),
@@ -58,7 +58,7 @@ pub struct DecodeError {
 }
 
 impl DecodeError {
-    pub(crate) fn in_path(mut self, item: PathItem) -> Self {
+    pub fn in_path(mut self, item: PathItem) -> Self {
         self.path.push(item);
         self
     }
@@ -111,7 +111,7 @@ macro_rules! encode_decode_as {
     ($ty:ty, {
         $($lhs:tt <=> $rhs:tt,)*
     } $(, |$other:pat| $other_handler:expr)?) => {
-        impl crate::io::Encode for $ty {
+        impl Encode for $ty {
             #[allow(unused_parens)]
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
                 match *self {
@@ -120,10 +120,10 @@ macro_rules! encode_decode_as {
             }
         }
 
-        impl crate::io::Decode for $ty {
+        impl Decode for $ty {
             #[allow(unused_parens)]
-            fn decode(r: &mut impl std::io::Read) -> Result<Self, crate::io::DecodeError> {
-                Ok(match crate::io::Decode::decode(r)? {
+            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                Ok(match Decode::decode(r)? {
                     $($rhs => $lhs,)*
                     $($other => return $other_handler)?
                 })

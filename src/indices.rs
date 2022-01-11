@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::builtins::WasmbinCountable;
-use crate::io::Wasmbin;
-use crate::visit::Visit;
+use crate::io::{Decode, DecodeError, Encode, PathItem, Wasmbin};
+use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 
 macro_rules! newtype_id {

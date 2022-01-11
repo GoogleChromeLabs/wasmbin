@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use crate::io::{Decode, DecodeError, Encode, PathItem};
+use crate::visit::{Visit, VisitError};
 
 pub use wasmbin_derive::WasmbinCountable;
 pub trait WasmbinCountable {}

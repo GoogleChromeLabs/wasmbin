@@ -13,7 +13,9 @@
 // limitations under the License.
 
 use super::MemArg;
-use crate::io::{DecodeErrorKind, Wasmbin};
+use crate::io::{
+    Decode, DecodeError, DecodeErrorKind, DecodeWithDiscriminant, Encode, PathItem, Wasmbin,
+};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;

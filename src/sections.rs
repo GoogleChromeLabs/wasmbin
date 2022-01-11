@@ -17,11 +17,9 @@ use crate::builtins::WasmbinCountable;
 use crate::builtins::{Blob, RawBlob};
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
-use crate::io::{
-    Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin,
-};
+use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
-use crate::visit::Visit;
+use crate::visit::{Visit, VisitError};
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use custom_debug::Debug as CustomDebug;

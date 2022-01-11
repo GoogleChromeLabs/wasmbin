@@ -15,7 +15,7 @@
 use crate::builtins::WasmbinCountable;
 use crate::indices::TypeId;
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
-use crate::visit::Visit;
+use crate::visit::{Visit, VisitError};
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use std::convert::TryFrom;

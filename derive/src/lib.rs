@@ -20,7 +20,7 @@ use synstructure::{decl_derive, Structure, VariantInfo};
 
 macro_rules! syn_throw {
     ($err:expr) => {
-        return syn::Error::to_compile_error(&$err);
+        return syn::Error::to_compile_error(&$err)
     };
 }
 
@@ -279,8 +279,6 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
     });
 
     s.gen_impl(quote! {
-        use crate::io::{Encode, Decode, DecodeWithDiscriminant, DecodeError, PathItem};
-
         gen impl Encode for @Self {
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
                 #encode_discriminant;
@@ -295,14 +293,17 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
 
 fn wasmbin_countable_derive(s: Structure) -> proc_macro2::TokenStream {
     s.gen_impl(quote! {
-        gen impl crate::builtins::WasmbinCountable for @Self {}
+        gen impl WasmbinCountable for @Self {}
     })
 }
 
 fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
     s.bind_with(|_| synstructure::BindStyle::Move);
 
-    fn generate_visit_body(s: &Structure, method: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    fn generate_visit_body(
+        s: &Structure,
+        method: proc_macro2::TokenStream,
+    ) -> proc_macro2::TokenStream {
         let body = s.each_variant(|v| {
             let res = v.bindings().iter().enumerate().map(|(i, bi)| {
                 let res = quote!(Visit::#method(#bi, f));
@@ -324,9 +325,6 @@ fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
     let visit_children_mut_body = generate_visit_body(&s, quote!(visit_child_mut));
 
     s.gen_impl(quote! {
-        use crate::visit::{Visit, VisitError};
-        use crate::io::PathItem;
-
         gen impl Visit for @Self where Self: 'static {
             fn visit_children<'a, VisitT: 'static, VisitE, VisitF: FnMut(&'a VisitT) -> Result<(), VisitE>>(&'a self, f: &mut VisitF) -> Result<(), VisitError<VisitE>> {
                 #visit_children_body

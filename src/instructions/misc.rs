@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::indices::{DataId, ElemId, MemId, TableId};
-use crate::io::Wasmbin;
-use crate::visit::Visit;
+use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
+use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 
 #[crate::wasmbin_discriminants]

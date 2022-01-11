@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::{Decode, DecodeError, Encode, Wasmbin};
-use crate::visit::Visit;
+use crate::io::{Decode, DecodeError, Encode, PathItem, Wasmbin};
+use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 
 /// A wrapper around floats that treats `NaN`s as equal.
