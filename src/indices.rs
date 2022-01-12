@@ -17,7 +17,8 @@ use crate::io::{Decode, DecodeError, Encode, PathItem, Wasmbin};
 use crate::visit::{Visit, VisitError};
 use arbitrary::Arbitrary;
 
-macro_rules! newtype_id {
+#[macro_export]
+macro_rules! new_type_id {
     ($name:ident) => {
         #[derive(PartialEq, Eq, Clone, Copy, Wasmbin, WasmbinCountable, Arbitrary, Hash, Visit)]
         #[repr(transparent)]
@@ -50,12 +51,12 @@ macro_rules! newtype_id {
     };
 }
 
-newtype_id!(DataId);
-newtype_id!(ElemId);
-newtype_id!(FuncId);
-newtype_id!(GlobalId);
-newtype_id!(LabelId);
-newtype_id!(LocalId);
-newtype_id!(MemId);
-newtype_id!(TableId);
-newtype_id!(TypeId);
+new_type_id!(DataId);
+new_type_id!(ElemId);
+new_type_id!(FuncId);
+new_type_id!(GlobalId);
+new_type_id!(LabelId);
+new_type_id!(LocalId);
+new_type_id!(MemId);
+new_type_id!(TableId);
+new_type_id!(TypeId);
