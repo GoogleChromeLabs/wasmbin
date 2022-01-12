@@ -142,6 +142,10 @@ macro_rules! define_custom_sections {
 define_custom_sections! {
     Name(Vec<NameSubSection>) = "name",
     Producers(Vec<ProducerField>) = "producers",
+    // https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#external-dwarf
+    ExternalDebugInfo(String) = "external_debug_info",
+    // https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
+    SourceMappingUrl(String) = "sourceMappingURL",
 }
 
 #[wasmbin_discriminants]
