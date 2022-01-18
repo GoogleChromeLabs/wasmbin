@@ -183,3 +183,9 @@ pub struct GlobalType {
     pub value_type: ValueType,
     pub mutable: bool,
 }
+
+#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[wasmbin(discriminant = 0x00)]
+pub struct ExceptionType {
+    pub func_type: FuncType,
+}

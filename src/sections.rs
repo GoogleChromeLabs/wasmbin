@@ -15,12 +15,10 @@
 use crate::builtins::Lazy;
 use crate::builtins::WasmbinCountable;
 use crate::builtins::{Blob, RawBlob};
-use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
+use crate::indices::{ExceptionId, FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
-use crate::io::{
-    Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin,
-};
-use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
+use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
+use crate::types::{ExceptionType, FuncType, GlobalType, MemType, RefType, TableType, ValueType};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
@@ -156,6 +154,7 @@ pub enum ImportDesc {
     Table(TableType) = 0x01,
     Mem(MemType) = 0x02,
     Global(GlobalType) = 0x03,
+    Exception(ExceptionType) = 0x04,
 }
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
@@ -184,6 +183,7 @@ pub enum ExportDesc {
     Table(TableId) = 0x01,
     Mem(MemId) = 0x02,
     Global(GlobalId) = 0x03,
+    Exception(ExceptionId) = 0x04,
 }
 
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

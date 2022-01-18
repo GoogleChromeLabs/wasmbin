@@ -52,6 +52,7 @@ macro_rules! newtype_id {
 
 newtype_id!(DataId);
 newtype_id!(ElemId);
+newtype_id!(ExceptionId);
 newtype_id!(FuncId);
 newtype_id!(GlobalId);
 newtype_id!(LabelId);
