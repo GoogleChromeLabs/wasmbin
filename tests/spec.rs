@@ -175,8 +175,9 @@ fn unlazify<T: Visit>(mut wasm: T) -> Result<T, DecodeError> {
 
 #[throws]
 fn run_test(mut test_module: &[u8], expect_result: Result<(), String>) {
+    let orig_test_module = test_module;
     let module = match (Module::decode_from(&mut test_module).and_then(unlazify), &expect_result) {
-        (Ok(ref module), Err(err)) => bail!("Expected an invalid module definition with an error: {err}\nParsed part: {test_module:02X?}\nGot module: {module:02X?}"),
+        (Ok(ref module), Err(err)) => bail!("Expected an invalid module definition with an error: {err}\nParsed part: {parsed_part:02X?}\nGot module: {module:02X?}", parsed_part = &orig_test_module[..orig_test_module.len() - test_module.len()]),
         (Err(err), Ok(())) => bail!(
             "Expected a valid module definition, but got an error\nModule: {test_module:02X?}\nError: {err:#}"
         ),
