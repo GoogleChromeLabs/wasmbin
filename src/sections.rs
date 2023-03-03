@@ -19,7 +19,7 @@ use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
-use crate::visit::Visit;
+use crate::visit::{Visit, VisitError};
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use custom_debug::Debug as CustomDebug;
@@ -98,7 +98,7 @@ pub struct RawCustomSection {
 
 macro_rules! define_custom_sections {
     ($($name:ident($ty:ty) = $disc:literal,)*) => {
-        #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+        #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
         pub enum CustomSection {
             $($name(Lazy<$ty>),)*
             Other(RawCustomSection),
@@ -132,6 +132,32 @@ macro_rules! define_custom_sections {
                     $($disc => CustomSection::$name(Lazy::from_raw(raw.data)),)*
                     _ => CustomSection::Other(raw)
                 })
+            }
+        }
+
+        impl Visit for CustomSection {
+            fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
+                &'a self,
+                f: &mut F,
+            ) -> Result<(), VisitError<E>> {
+                // Custom section decoding errors must be ignored.
+                drop(match self {
+                    $(CustomSection::$name(data) => data.visit_child(f),)*
+                    CustomSection::Other(raw) => raw.visit_child(f),
+                });
+                Ok(())
+            }
+
+            fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
+                &mut self,
+                f: &mut F,
+            ) -> Result<(), VisitError<E>> {
+                // Custom section decoding errors must be ignored.
+                drop(match self {
+                    $(CustomSection::$name(data) => data.visit_child_mut(f),)*
+                    CustomSection::Other(raw) => raw.visit_child_mut(f),
+                });
+                Ok(())
             }
         }
     };
