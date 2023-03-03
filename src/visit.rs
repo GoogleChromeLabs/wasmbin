@@ -13,31 +13,16 @@
 // limitations under the License.
 
 use crate::io::{DecodeError, PathItem};
+use thiserror::Error;
 
+#[derive(Error, Debug)]
 pub enum VisitError<E> {
+    #[error(transparent)]
     LazyDecode(DecodeError),
+
+    #[error(transparent)]
     Custom(E),
 }
-
-impl<E: std::fmt::Display> std::fmt::Display for VisitError<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VisitError::LazyDecode(err) => err.fmt(f),
-            VisitError::Custom(err) => err.fmt(f),
-        }
-    }
-}
-
-impl<E: std::fmt::Debug> std::fmt::Debug for VisitError<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VisitError::LazyDecode(err) => err.fmt(f),
-            VisitError::Custom(err) => err.fmt(f),
-        }
-    }
-}
-
-impl<E: std::error::Error> std::error::Error for VisitError<E> {}
 
 impl<E> VisitError<E> {
     pub(crate) fn in_path(self, item: PathItem) -> Self {
