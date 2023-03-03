@@ -78,9 +78,9 @@ impl std::fmt::Display for DecodeError {
         f.write_str("(root)")?;
         for item in self.path.iter().rev() {
             match *item {
-                PathItem::Name(name) => write!(f, ".{}", name),
-                PathItem::Index(index) => write!(f, "[{}]", index),
-                PathItem::Variant(variant) => write!(f, ":<{}>", variant),
+                PathItem::Name(name) => write!(f, ".{name}"),
+                PathItem::Index(index) => write!(f, "[{index}]"),
+                PathItem::Variant(variant) => write!(f, ":<{variant}>"),
             }?;
         }
         write!(f, ": {}", self.kind)

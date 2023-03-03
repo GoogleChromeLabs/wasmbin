@@ -15,12 +15,12 @@ exclude = [
 ]
 
 [dependencies]
-leb128 = "0.2.4"
-thiserror = "1.0.25"
+leb128 = "0.2.5"
+thiserror = "1.0.38"
 wasmbin-derive = { version = "0.1.0", path = "derive" }
 custom_debug = "0.5.0"
-once_cell = "1.8.0"
-arbitrary = { version = "1.0.1", features = ["derive"] }
+once_cell = "1.17.1"
+arbitrary = { version = "1.2.3", features = ["derive"] }
 
 [features]
 default = []
@@ -31,13 +31,13 @@ simd = []
 threads = []
 
 [dev-dependencies]
-criterion = "0.3.4"
-libtest-mimic = "0.3.0"
-wast = "36.0.0"
+criterion = "0.4.0"
+libtest-mimic = "0.6.0"
+wast = "54.0.1"
 fehler = "1.0.0"
-anyhow = "1.0.41"
-tempfile = "3.2.0"
-structopt = "0.3.21"
+anyhow = { version = "1.0.69", features = ["backtrace"] }
+tempfile = "3.4.0"
+structopt = "0.3.26"
 
 [[bench]]
 name = "bench"

@@ -14,7 +14,7 @@
 
 use anyhow::{bail, Context, Error};
 use fehler::throws;
-use libtest_mimic::{run_tests, Arguments, Outcome, Test};
+use libtest_mimic::{run as run_tests, Arguments, Failed, Trial};
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
 use wasmbin::{
@@ -22,8 +22,9 @@ use wasmbin::{
     visit::{Visit, VisitError},
     Module,
 };
+use wast::lexer::Lexer;
 use wast::parser::{parse, ParseBuffer};
-use wast::Wast;
+use wast::{QuoteWat, Wast};
 
 const IGNORED_ERRORS: &[&str] = &[
     // We don't perform cross-section analysis.
@@ -62,28 +63,26 @@ const IGNORED_MODULES: &[&[u8]] = &[
     ],
 ];
 
-struct WasmTest {
-    module: Vec<u8>,
-    expect_result: Result<(), String>,
-}
-
 #[throws]
-fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
+fn read_tests_from_file(path: &Path, dest: &mut Vec<Trial>) {
     let src = read_to_string(path)?;
     let set_err_path_text = |mut err: wast::Error| {
         err.set_path(path);
         err.set_text(&src);
         err
     };
-    let buf = ParseBuffer::new(&src).map_err(set_err_path_text)?;
+    let mut lexer = Lexer::new(&src);
+    lexer.allow_confusing_unicode(true);
+    let buf = ParseBuffer::new_with_lexer(lexer).map_err(set_err_path_text)?;
     let wast = parse::<Wast>(&buf).map_err(set_err_path_text)?;
     for directive in wast.directives {
-        let (span, mut module, expect_result) = match directive {
+        let span = directive.span();
+        let (mut module, expect_result) = match directive {
             // Expect errors for assert_malformed on binary or AST modules.
             wast::WastDirective::AssertMalformed {
-                span,
-                module: wast::QuoteModule::Module(module),
+                module,
                 message,
+                ..
             }
             // Unlike other AssertInvalid, this is actually something we
             // check at the parsing time, because it's part of our
@@ -93,42 +92,43 @@ fn read_tests_from_file(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
             // See https://github.com/WebAssembly/simd/issues/256 for accepted
             // but pending suggestion to change proposal to match this as well.
             | wast::WastDirective::AssertInvalid {
-                span,
                 module,
                 message: message @ "invalid lane index",
-            } => (span, module, Err(message.to_owned())),
+                ..
+            } => (module, Err(message.to_owned())),
             // Expect successful parsing for regular AST modules.
-            wast::WastDirective::Module(module) => (module.span, module, Ok(())),
+            wast::WastDirective::Wat(module) => (module, Ok(())),
             // Counter-intuitively, expect successful parsing for modules that are supposed
             // to error out at runtime or linking stage, too.
-            wast::WastDirective::AssertInvalid { span, module, .. }
-            | wast::WastDirective::AssertUnlinkable { span, module, .. } => (span, module, Ok(())),
+            wast::WastDirective::AssertInvalid { module, .. } => (module, Ok(())),
+            wast::WastDirective::AssertUnlinkable { module, .. } => (QuoteWat::Wat(module), Ok(())),
             _ => {
                 // Skipping interpreted
                 continue;
             }
         };
         let (line, col) = span.linecol_in(&src);
-        let module = module.encode()?;
-        dest.push(Test {
-            name: format!("{}:{}:{}", path.display(), line + 1, col + 1),
-            kind: String::default(),
-            is_ignored: IGNORED_MODULES.contains(&module.as_slice())
-                || match &expect_result {
-                    Ok(()) => false,
-                    Err(err) => IGNORED_ERRORS.contains(&err.as_str()),
-                },
-            is_bench: false,
-            data: WasmTest {
-                module,
-                expect_result,
-            },
-        });
+        let Ok(raw_module) = module.encode() else {
+            // If module can't be encoded, there's nothing our parser can do.
+            continue;
+        };
+        let is_ignored = IGNORED_MODULES.contains(&raw_module.as_slice())
+            || match &expect_result {
+                Ok(()) => false,
+                Err(err) => IGNORED_ERRORS.contains(&err.as_str()),
+            };
+        dest.push(
+            Trial::test(
+                format!("{}:{}:{}", path.display(), line + 1, col + 1),
+                move || run_test(&raw_module, expect_result).map_err(Failed::from),
+            )
+            .with_ignored_flag(is_ignored),
+        );
     }
 }
 
 #[throws]
-fn read_tests_from_dir(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
+fn read_tests_from_dir(path: &Path, dest: &mut Vec<Trial>) {
     for file in read_dir(path)? {
         let path = file?.path();
         if path.extension().map_or(false, |ext| ext == "wast") {
@@ -138,7 +138,7 @@ fn read_tests_from_dir(path: &Path, dest: &mut Vec<Test<WasmTest>>) {
 }
 
 #[throws]
-fn read_all_tests(path: &Path) -> Vec<Test<WasmTest>> {
+fn read_all_tests(path: &Path) -> Vec<Trial> {
     let mut tests = Vec::new();
     let proposals_dir = path.join("proposals");
 
@@ -174,30 +174,24 @@ fn unlazify<T: Visit>(mut wasm: T) -> Result<T, DecodeError> {
 }
 
 #[throws]
-fn run_test(test: &WasmTest) {
-    let module = match (Module::decode_from(&mut test.module.as_slice()).and_then(unlazify), &test.expect_result) {
-        (Ok(ref module), Err(err)) => bail!("Expected an invalid module definition with an error: {}\nParsed part: {:02X?}\nGot module: {:02X?}", err, test.module, module),
+fn run_test(mut test_module: &[u8], expect_result: Result<(), String>) {
+    let module = match (Module::decode_from(&mut test_module).and_then(unlazify), &expect_result) {
+        (Ok(ref module), Err(err)) => bail!("Expected an invalid module definition with an error: {err}\nParsed part: {test_module:02X?}\nGot module: {module:02X?}"),
         (Err(err), Ok(())) => bail!(
-            "Expected a valid module definition, but got an error\nModule: {:02X?}\nError: {:#}",
-            test.module,
-            err
+            "Expected a valid module definition, but got an error\nModule: {test_module:02X?}\nError: {err:#}"
         ),
         (Ok(module), Ok(())) => module,
         (Err(_), Err(_)) => return,
     };
     let out = module.encode_into(Vec::new())?;
-    if out != test.module {
+    if out != test_module {
         // In the rare case that binary representation doesn't match, it
         // might be because the test uses longer LEB128 form than
         // required. Verify that at least decoding it back produces the
         // same module.
         let module2 = Module::decode_from(out.as_slice())?;
         if module != module2 {
-            bail!(
-                "Roundtrip mismatch. Old: {:#?}\nNew: {:#?}",
-                module,
-                module2
-            );
+            bail!("Roundtrip mismatch. Old: {module:#?}\nNew: {module2:#?}");
         }
     }
 }
@@ -206,13 +200,5 @@ fn run_test(test: &WasmTest) {
 fn main() {
     let tests = read_all_tests(&Path::new("tests").join("testsuite"))?;
 
-    run_tests(&Arguments::from_args(), tests, |test| {
-        match run_test(&test.data) {
-            Ok(()) => Outcome::Passed,
-            Err(err) => Outcome::Failed {
-                msg: Some(err.to_string()),
-            },
-        }
-    })
-    .exit_if_failed();
+    run_tests(&Arguments::from_args(), tests).exit_if_failed();
 }

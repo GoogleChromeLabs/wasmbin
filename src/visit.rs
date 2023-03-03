@@ -69,13 +69,13 @@ impl From<VisitError<NeverError>> for DecodeError {
 pub trait VisitResult {
     type Error;
 
-    fn as_result(self) -> Result<(), Self::Error>;
+    fn into_result(self) -> Result<(), Self::Error>;
 }
 
 impl VisitResult for () {
     type Error = NeverError;
 
-    fn as_result(self) -> Result<(), Self::Error> {
+    fn into_result(self) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -83,7 +83,7 @@ impl VisitResult for () {
 impl VisitResult for bool {
     type Error = ();
 
-    fn as_result(self) -> Result<(), Self::Error> {
+    fn into_result(self) -> Result<(), Self::Error> {
         match self {
             true => Ok(()),
             false => Err(()),
@@ -94,7 +94,7 @@ impl VisitResult for bool {
 impl<E> VisitResult for Result<(), E> {
     type Error = E;
 
-    fn as_result(self) -> Result<(), Self::Error> {
+    fn into_result(self) -> Result<(), Self::Error> {
         self
     }
 }
@@ -105,14 +105,14 @@ pub trait Visit: 'static + Sized {
         &'a self,
         mut f: F,
     ) -> Result<(), VisitError<R::Error>> {
-        self.visit_child(&mut move |item| f(item).as_result())
+        self.visit_child(&mut move |item| f(item).into_result())
     }
 
     fn visit_mut<T: 'static, R: VisitResult, F: FnMut(&mut T) -> R>(
         &mut self,
         mut f: F,
     ) -> Result<(), VisitError<R::Error>> {
-        self.visit_child_mut(&mut move |item| f(item).as_result())
+        self.visit_child_mut(&mut move |item| f(item).into_result())
     }
 
     fn visit_child<'a, T: 'static, E, F: FnMut(&'a T) -> Result<(), E>>(

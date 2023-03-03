@@ -120,7 +120,7 @@ impl Debug for Limits {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}..", self.min)?;
         if let Some(max) = self.max {
-            write!(f, "={}", max)?;
+            write!(f, "={max}")?;
         }
         Ok(())
     }

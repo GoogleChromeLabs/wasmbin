@@ -20,7 +20,7 @@ use synstructure::{decl_derive, Structure, VariantInfo};
 
 macro_rules! syn_throw {
     ($err:expr) => {
-        return syn::Error::to_compile_error(&$err);
+        return syn::Error::to_compile_error(&$err)
     };
 }
 
@@ -302,7 +302,10 @@ fn wasmbin_countable_derive(s: Structure) -> proc_macro2::TokenStream {
 fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
     s.bind_with(|_| synstructure::BindStyle::Move);
 
-    fn generate_visit_body(s: &Structure, method: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    fn generate_visit_body(
+        s: &Structure,
+        method: proc_macro2::TokenStream,
+    ) -> proc_macro2::TokenStream {
         let body = s.each_variant(|v| {
             let res = v.bindings().iter().enumerate().map(|(i, bi)| {
                 let res = quote!(Visit::#method(#bi, f));
