@@ -15,6 +15,8 @@
 use crate::builtins::Lazy;
 use crate::builtins::WasmbinCountable;
 use crate::builtins::{Blob, RawBlob};
+#[cfg(feature = "extended-name-section")]
+use crate::indices::{DataId, ElemId, LabelId};
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
@@ -40,17 +42,33 @@ pub struct NameAssoc<I, V> {
 impl<I, V> WasmbinCountable for NameAssoc<I, V> {}
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct NameMap<I, V> {
+pub struct NameMap<I, V = String> {
     pub items: Vec<NameAssoc<I, V>>,
 }
+
+pub type IndirectNameMap<I1, I2> = NameMap<I1, NameMap<I2>>;
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum NameSubSection {
     Module(Blob<String>) = 0,
-    Func(Blob<NameMap<FuncId, String>>) = 1,
-    Local(Blob<NameMap<FuncId, NameMap<LocalId, String>>>) = 2,
+    Func(Blob<NameMap<FuncId>>) = 1,
+    Local(Blob<IndirectNameMap<FuncId, LocalId>>) = 2,
+    #[cfg(feature = "extended-name-section")]
+    Label(Blob<IndirectNameMap<FuncId, LabelId>>) = 3,
+    #[cfg(feature = "extended-name-section")]
+    Type(Blob<NameMap<TypeId>>) = 4,
+    #[cfg(feature = "extended-name-section")]
+    Table(Blob<NameMap<TableId>>) = 5,
+    #[cfg(feature = "extended-name-section")]
+    Memory(Blob<NameMap<MemId>>) = 6,
+    #[cfg(feature = "extended-name-section")]
+    Global(Blob<NameMap<GlobalId>>) = 7,
+    #[cfg(feature = "extended-name-section")]
+    Elem(Blob<NameMap<ElemId>>) = 8,
+    #[cfg(feature = "extended-name-section")]
+    Data(Blob<NameMap<DataId>>) = 9,
 }
 
 impl Encode for [NameSubSection] {
