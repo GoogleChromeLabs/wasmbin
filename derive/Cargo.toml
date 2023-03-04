@@ -16,6 +16,3 @@ quote = "1.0.23"
 proc-macro2 = "1.0.51"
 syn = "1.0.109"
 thiserror = "1.0.38"
-
-[features]
-nightly = []
