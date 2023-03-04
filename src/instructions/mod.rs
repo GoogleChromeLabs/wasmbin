@@ -17,7 +17,6 @@ use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId}
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::types::{BlockType, RefType, ValueType};
 use crate::visit::Visit;
-use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use thiserror::Error;
 
@@ -125,7 +124,6 @@ pub struct CallIndirect {
     table: TableId,
 }
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Instruction {

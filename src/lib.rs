@@ -21,8 +21,6 @@
 )]
 #![doc = include_str!("../README.md")]
 
-use wasmbin_derive::wasmbin_discriminants;
-
 #[macro_use]
 pub mod io;
 #[macro_use]

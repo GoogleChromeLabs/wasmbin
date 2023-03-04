@@ -332,30 +332,6 @@ fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
     })
 }
 
-#[proc_macro_attribute]
-pub fn wasmbin_discriminants(
-    _attr: proc_macro::TokenStream,
-    input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let mut input: syn::DeriveInput = syn::parse(input).unwrap();
-    let e = match &mut input.data {
-        syn::Data::Enum(e) => e,
-        _ => panic!("This attribute can only be used on enums"),
-    };
-    let mut seen_non_units = false;
-    for v in &mut e.variants {
-        match v.fields {
-            syn::Fields::Unit => {}
-            _ => seen_non_units = true,
-        }
-    }
-    assert!(
-        seen_non_units,
-        "Attribute shouldn't be used on C-like enums"
-    );
-    input.into_token_stream().into()
-}
-
 decl_derive!([Wasmbin, attributes(wasmbin)] => wasmbin_derive);
 decl_derive!([WasmbinCountable] => wasmbin_countable_derive);
 decl_derive!([Visit] => wasmbin_visit_derive);

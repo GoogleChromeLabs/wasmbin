@@ -15,7 +15,6 @@
 use super::MemArg;
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
-use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Visit)]
@@ -74,7 +73,6 @@ impl<const MAX: u8, const N: usize> Decode for [LaneIdx<MAX>; N] {
     }
 }
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u32)]
 pub enum SIMD {

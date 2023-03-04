@@ -16,14 +16,12 @@ use crate::builtins::WasmbinCountable;
 use crate::indices::TypeId;
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::visit::Visit;
-use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter};
 
 const OP_CODE_EMPTY_BLOCK: u8 = 0x40;
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ValueType {
@@ -125,7 +123,6 @@ impl Debug for Limits {
     }
 }
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin)]
 #[repr(u8)]
 enum LimitsRepr {
@@ -139,7 +136,6 @@ encode_decode_as!(Limits, {
 });
 
 #[cfg(feature = "threads")]
-#[wasmbin_discriminants]
 #[derive(Wasmbin)]
 #[repr(u8)]
 enum MemTypeRepr {

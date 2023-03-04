@@ -26,7 +26,6 @@ use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, W
 use crate::types::ExceptionType;
 use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
 use crate::visit::{Visit, VisitError};
-use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 use custom_debug::Debug as CustomDebug;
 use std::convert::TryFrom;
@@ -52,7 +51,6 @@ pub struct NameMap<I, V = String> {
 
 pub type IndirectNameMap<I1, I2> = NameMap<I1, NameMap<I2>>;
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum NameSubSection {
@@ -194,7 +192,6 @@ define_custom_sections! {
     SourceMappingUrl(String) = "sourceMappingURL",
 }
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ImportDesc {
@@ -224,7 +221,6 @@ pub struct Global {
     pub init: Expression,
 }
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ExportDesc {
@@ -248,7 +244,6 @@ pub enum ElemKind {
     FuncRef = 0x00,
 }
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Element {
@@ -312,7 +307,6 @@ pub struct FuncBody {
     pub expr: Expression,
 }
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum DataInit {
@@ -344,8 +338,7 @@ macro_rules! define_sections {
             $($(# $attr)? pub type $name = $ty;)*
         }
 
-        #[wasmbin_discriminants]
-        #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+                #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
         #[repr(u8)]
         pub enum Section {
             $($(# $attr)? $name(Blob<payload::$name>) = $disc,)*

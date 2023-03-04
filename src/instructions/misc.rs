@@ -17,7 +17,6 @@ use crate::io::Wasmbin;
 use crate::visit::Visit;
 use arbitrary::Arbitrary;
 
-#[crate::wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u32)]
 pub enum Misc {

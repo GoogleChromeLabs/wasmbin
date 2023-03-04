@@ -15,7 +15,6 @@
 use super::MemArg;
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
-use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
@@ -54,7 +53,6 @@ pub type MemArg16 = AlignedMemArg<1>;
 pub type MemArg32 = AlignedMemArg<2>;
 pub type MemArg64 = AlignedMemArg<3>;
 
-#[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Atomic {
