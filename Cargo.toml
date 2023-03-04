@@ -38,6 +38,7 @@ fehler = "1.0.0"
 anyhow = { version = "1.0.69", features = ["backtrace"] }
 tempfile = "3.4.0"
 structopt = "0.3.26"
+indexmap = "1.9.2"
 
 [[bench]]
 name = "bench"

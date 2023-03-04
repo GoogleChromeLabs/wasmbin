@@ -14,9 +14,11 @@
 
 use anyhow::{bail, Context, Error};
 use fehler::throws;
+use indexmap::IndexMap;
 use libtest_mimic::{run as run_tests, Arguments, Failed, Trial};
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
+use std::sync::Arc;
 use wasmbin::{
     io::DecodeError,
     visit::{Visit, VisitError},
@@ -72,108 +74,123 @@ const IGNORED_MODULES: &[&[u8]] = &[
     ],
 ];
 
-#[throws]
-fn read_tests_from_file(path: &Path, dest: &mut Vec<Trial>) {
-    let src = read_to_string(path)?;
-    let set_err_path_text = |mut err: wast::Error| {
-        err.set_path(path);
-        err.set_text(&src);
-        err
-    };
-    let mut lexer = Lexer::new(&src);
-    lexer.allow_confusing_unicode(true);
-    let buf = ParseBuffer::new_with_lexer(lexer).map_err(set_err_path_text)?;
-    let wast = parse::<Wast>(&buf).map_err(set_err_path_text)?;
-    for directive in wast.directives {
-        let span = directive.span();
-        let (mut module, expect_result) = match directive {
-            // Expect errors for assert_malformed on binary or AST modules.
-            wast::WastDirective::AssertMalformed {
-                module,
-                message,
-                ..
-            }
-            // Unlike other AssertInvalid, this is actually something we
-            // check at the parsing time, because it's part of our
-            // typesystem and doesn't require cross-function or
-            // cross-section checks.
-            //
-            // See https://github.com/WebAssembly/simd/issues/256 for accepted
-            // but pending suggestion to change proposal to match this as well.
-            | wast::WastDirective::AssertInvalid {
-                module,
-                message: message @ "invalid lane index",
-                ..
-            } => (module, Err(message.to_owned())),
-            // Expect successful parsing for regular AST modules.
-            wast::WastDirective::Wat(module) => (module, Ok(())),
-            // Counter-intuitively, expect successful parsing for modules that are supposed
-            // to error out at runtime or linking stage, too.
-            wast::WastDirective::AssertInvalid { module, .. } => (module, Ok(())),
-            wast::WastDirective::AssertUnlinkable { module, .. } => (QuoteWat::Wat(module), Ok(())),
-            _ => {
-                // Skipping interpreted
-                continue;
-            }
-        };
-        let (line, col) = span.linecol_in(&src);
-        let Ok(raw_module) = module.encode() else {
-            // If module can't be encoded, there's nothing our parser can do.
-            continue;
-        };
-        let is_ignored = IGNORED_MODULES.contains(&raw_module.as_slice())
-            || match &expect_result {
-                Ok(()) => false,
-                Err(err) => IGNORED_ERRORS.contains(&err.as_str()),
-            };
-        dest.push(
-            Trial::test(
-                format!("{}:{}:{}", path.display(), line + 1, col + 1),
-                move || run_test(&raw_module, expect_result).map_err(Failed::from),
-            )
-            .with_ignored_flag(is_ignored),
-        );
-    }
+#[derive(Default)]
+struct Tests {
+    deduped: IndexMap<Arc<Vec<u8>>, Trial>,
 }
 
-#[throws]
-fn read_tests_from_dir(path: &Path, dest: &mut Vec<Trial>) {
-    for file in read_dir(path)? {
-        let path = file?.path();
-        if path.extension().map_or(false, |ext| ext == "wast") {
-            read_tests_from_file(&path, dest)?;
+impl Tests {
+    #[throws]
+    fn read_tests_from_file(&mut self, path: &Path) {
+        let src = read_to_string(path)?;
+        let set_err_path_text = |mut err: wast::Error| {
+            err.set_path(path);
+            err.set_text(&src);
+            err
+        };
+        let mut lexer = Lexer::new(&src);
+        lexer.allow_confusing_unicode(true);
+        let buf = ParseBuffer::new_with_lexer(lexer).map_err(set_err_path_text)?;
+        let wast = parse::<Wast>(&buf).map_err(set_err_path_text)?;
+        for directive in wast.directives {
+            let span = directive.span();
+            let (mut module, expect_result) = match directive {
+                // Expect errors for assert_malformed on binary or AST modules.
+                wast::WastDirective::AssertMalformed {
+                    module,
+                    message,
+                    ..
+                }
+                // Unlike other AssertInvalid, this is actually something we
+                // check at the parsing time, because it's part of our
+                // typesystem and doesn't require cross-function or
+                // cross-section checks.
+                //
+                // See https://github.com/WebAssembly/simd/issues/256 for accepted
+                // but pending suggestion to change proposal to match this as well.
+                | wast::WastDirective::AssertInvalid {
+                    module,
+                    message: message @ "invalid lane index",
+                    ..
+                } => (module, Err(message.to_owned())),
+                // Expect successful parsing for regular AST modules.
+                wast::WastDirective::Wat(module) => (module, Ok(())),
+                // Counter-intuitively, expect successful parsing for modules that are supposed
+                // to error out at runtime or linking stage, too.
+                wast::WastDirective::AssertInvalid { module, .. } => (module, Ok(())),
+                wast::WastDirective::AssertUnlinkable { module, .. } => (QuoteWat::Wat(module), Ok(())),
+                _ => {
+                    // Skipping interpreted
+                    continue;
+                }
+            };
+            let (line, col) = span.linecol_in(&src);
+            let Ok(raw_module) = module.encode() else {
+                // If module can't be encoded, there's nothing our parser can do.
+                continue;
+            };
+            let is_ignored = IGNORED_MODULES.contains(&raw_module.as_slice())
+                || match &expect_result {
+                    Ok(()) => false,
+                    Err(err) => IGNORED_ERRORS.contains(&err.as_str()),
+                };
+            let raw_module = Arc::new(raw_module);
+            self.deduped
+                .entry(Arc::clone(&raw_module))
+                .or_insert_with(|| {
+                    Trial::test(
+                        format!("{}:{}:{}", path.display(), line + 1, col + 1),
+                        move || run_test(&raw_module, expect_result).map_err(Failed::from),
+                    )
+                    .with_ignored_flag(is_ignored)
+                });
         }
     }
-}
 
-#[throws]
-fn read_all_tests(path: &Path) -> Vec<Trial> {
-    let mut tests = Vec::new();
-    let proposals_dir = path.join("proposals");
-
-    macro_rules! read_proposal_tests {
-        ($name:literal) => {
-            read_tests_from_dir(&proposals_dir.join($name), &mut tests).context($name)?
-        };
-
-        (? $name:literal) => {
-            if cfg!(feature = $name) {
-                read_proposal_tests!($name)
+    #[throws]
+    fn read_tests_from_dir(&mut self, path: &Path) {
+        for file in read_dir(path)? {
+            let path = file?.path();
+            if path.extension().map_or(false, |ext| ext == "wast") {
+                self.read_tests_from_file(&path)?;
             }
-        };
+        }
     }
 
-    read_proposal_tests!(? "tail-call");
-    read_proposal_tests!("simd");
-    read_proposal_tests!(? "threads");
+    #[throws]
+    fn read_all_tests(path: &Path) -> Vec<Trial> {
+        let mut tests = Self::default();
 
-    read_tests_from_dir(path, &mut tests)?;
+        tests.read_tests_from_dir(path)?;
 
-    if tests.is_empty() {
-        bail!("Couldn't find any tests. Did you run `git submodule update --init`?");
+        let proposals_dir = path.join("proposals");
+
+        macro_rules! read_proposal_tests {
+            ($name:literal) => {
+                tests
+                    .read_tests_from_dir(&proposals_dir.join($name))
+                    .context($name)?
+            };
+
+            (? $name:literal) => {
+                if cfg!(feature = $name) {
+                    read_proposal_tests!($name)
+                }
+            };
+        }
+
+        read_proposal_tests!(? "tail-call");
+        read_proposal_tests!("simd");
+        read_proposal_tests!(? "threads");
+
+        let tests = tests.deduped.into_values().collect::<Vec<_>>();
+
+        if tests.is_empty() {
+            bail!("Couldn't find any tests. Did you run `git submodule update --init`?");
+        }
+
+        tests
     }
-
-    tests
 }
 
 fn unlazify<T: Visit>(mut wasm: T) -> Result<T, DecodeError> {
@@ -212,7 +229,7 @@ fn run_test(mut test_module: &[u8], expect_result: Result<(), String>) {
 
 #[throws]
 fn main() {
-    let tests = read_all_tests(&Path::new("tests").join("testsuite"))?;
+    let tests = Tests::read_all_tests(&Path::new("tests").join("testsuite"))?;
 
     run_tests(&Arguments::from_args(), tests).exit_if_failed();
 }
