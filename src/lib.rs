@@ -20,6 +20,7 @@
     clippy::must_use_candidate,
     clippy::module_name_repetitions
 )]
+#![doc = include_str!("../README.md")]
 
 use wasmbin_derive::wasmbin_discriminants;
 
