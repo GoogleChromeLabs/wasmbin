@@ -179,6 +179,7 @@ impl Tests {
             };
         }
 
+        read_proposal_tests!("bulk-memory-operations");
         read_proposal_tests!(? "tail-call");
         read_proposal_tests!("simd");
         read_proposal_tests!(? "threads");
