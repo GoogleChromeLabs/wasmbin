@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use anyhow::{bail, Context, Error};
+use anyhow::{bail, ensure, Context, Error};
 use fehler::throws;
 use indexmap::IndexMap;
 use libtest_mimic::{run as run_tests, Arguments, Failed, Trial};
+use rayon::prelude::*;
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
 use std::sync::Arc;
@@ -82,7 +83,7 @@ struct Tests {
 impl Tests {
     #[throws]
     fn read_tests_from_file(&mut self, path: &Path) {
-        let src = read_to_string(path)?;
+        let src = read_to_string(path).with_context(|| path.display().to_string())?;
         let set_err_path_text = |mut err: wast::Error| {
             err.set_path(path);
             err.set_text(&src);
@@ -124,20 +125,22 @@ impl Tests {
                     continue;
                 }
             };
-            let (line, col) = span.linecol_in(&src);
             let Ok(raw_module) = module.encode() else {
                 // If module can't be encoded, there's nothing our parser can do.
                 continue;
             };
-            let is_ignored = IGNORED_MODULES.contains(&raw_module.as_slice())
-                || match &expect_result {
-                    Ok(()) => false,
-                    Err(err) => IGNORED_ERRORS.contains(&err.as_str()),
-                };
             let raw_module = Arc::new(raw_module);
             self.deduped
                 .entry(Arc::clone(&raw_module))
                 .or_insert_with(|| {
+                    let is_ignored = IGNORED_MODULES.contains(&raw_module.as_slice())
+                        || match &expect_result {
+                            Ok(()) => false,
+                            Err(err) => IGNORED_ERRORS.contains(&err.as_str()),
+                        };
+
+                    let (line, col) = span.linecol_in(&src);
+
                     Trial::test(
                         format!("{}:{}:{}", path.display(), line + 1, col + 1),
                         move || run_test(&raw_module, expect_result).map_err(Failed::from),
@@ -148,33 +151,31 @@ impl Tests {
     }
 
     #[throws]
-    fn read_tests_from_dir(&mut self, path: &Path) {
-        for file in read_dir(path)? {
-            let path = file?.path();
-            if path.extension().map_or(false, |ext| ext == "wast") {
-                self.read_tests_from_file(&path)?;
-            }
-        }
-    }
-
-    #[throws]
     fn read_all_tests(path: &Path) -> Vec<Trial> {
-        let mut tests = Self::default();
+        let mut test_files = Vec::new();
 
-        tests.read_tests_from_dir(path)?;
+        let mut add_test_files_in_dir = |path: &Path| -> anyhow::Result<()> {
+            for file in read_dir(path)? {
+                let path = file?.path();
+                if path.extension().map_or(false, |ext| ext == "wast") {
+                    test_files.push(path);
+                }
+            }
+            Ok(())
+        };
+
+        add_test_files_in_dir(path)?;
 
         let proposals_dir = path.join("proposals");
 
         macro_rules! read_proposal_tests {
             ($name:literal) => {
-                tests
-                    .read_tests_from_dir(&proposals_dir.join($name))
-                    .context($name)?
+                add_test_files_in_dir(&proposals_dir.join($name))?;
             };
 
             (? $name:literal) => {
                 if cfg!(feature = $name) {
-                    read_proposal_tests!($name)
+                    read_proposal_tests!($name);
                 }
             };
         }
@@ -186,13 +187,25 @@ impl Tests {
         read_proposal_tests!(? "tail-call");
         read_proposal_tests!(? "threads");
 
-        let tests = tests.deduped.into_values().collect::<Vec<_>>();
+        ensure!(
+            !test_files.is_empty(),
+            "Couldn't find any tests. Did you run `git submodule update --init`?"
+        );
 
-        if tests.is_empty() {
-            bail!("Couldn't find any tests. Did you run `git submodule update --init`?");
-        }
-
-        tests
+        test_files
+            .into_par_iter()
+            .try_fold(Tests::default, |mut tests, path| {
+                tests.read_tests_from_file(&path)?;
+                Ok::<_, anyhow::Error>(tests)
+            })
+            .try_reduce(Self::default, |mut a, b| {
+                a.deduped.extend(b.deduped);
+                Ok(a)
+            })?
+            .deduped
+            .into_par_iter()
+            .map(|(_, test)| test)
+            .collect()
     }
 }
 
@@ -224,9 +237,10 @@ fn run_test(mut test_module: &[u8], expect_result: Result<(), String>) {
         // required. Verify that at least decoding it back produces the
         // same module.
         let module2 = Module::decode_from(out.as_slice())?;
-        if module != module2 {
-            bail!("Roundtrip mismatch. Old: {module:#?}\nNew: {module2:#?}");
-        }
+        ensure!(
+            module == module2,
+            "Roundtrip mismatch. Old: {module:#?}\nNew: {module2:#?}"
+        );
     }
 }
 

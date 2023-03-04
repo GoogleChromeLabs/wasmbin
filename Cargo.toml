@@ -38,7 +38,8 @@ fehler = "1.0.0"
 anyhow = { version = "1.0.69", features = ["backtrace"] }
 tempfile = "3.4.0"
 structopt = "0.3.26"
-indexmap = "1.9.2"
+indexmap = { version = "1.9.2", features = ["rayon"] }
+rayon = "1.7.0"
 
 [[bench]]
 name = "bench"
