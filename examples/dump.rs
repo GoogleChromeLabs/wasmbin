@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use anyhow::Context;
 use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom};
+use std::io::{BufReader, Seek};
 use structopt::StructOpt;
 use wasmbin::io::DecodeError;
 use wasmbin::sections::{Kind, Section};
@@ -66,17 +67,16 @@ fn unlazify_with_opt<T: Visit>(wasm: &mut T, include_raw: bool) -> Result<(), De
     }
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let opts = DumpOpts::from_args();
-    let f = File::open(opts.filename).unwrap();
+    let f = File::open(opts.filename)?;
     let mut f = BufReader::new(f);
-    let mut m = Module::decode_from(&mut f).unwrap_or_else(|err| {
-        panic!(
-            "Parsing error at offset 0x{:08X}: {}",
-            f.seek(SeekFrom::Current(0)).unwrap(),
-            err
+    let mut m = Module::decode_from(&mut f).with_context(|| {
+        format!(
+            "Parsing error at offset 0x{:08X}",
+            f.stream_position().unwrap()
         )
-    });
+    })?;
     let filter: Box<dyn Fn(&Section) -> bool> = match opts.section {
         DumpSection::All => Box::new(|_s: &Section| true) as _,
         DumpSection::Custom { name } => Box::new(move |s: &Section| {
@@ -110,8 +110,9 @@ fn main() {
     let mut count = 0;
     for s in m.sections.iter_mut().filter(|s| filter(s)) {
         count += 1;
-        unlazify_with_opt(s, opts.include_raw).unwrap();
+        unlazify_with_opt(s, opts.include_raw)?;
         println!("{:#?}", s);
     }
     println!("Found {} sections.", count);
+    Ok(())
 }
