@@ -61,7 +61,7 @@ def_lane_idx!(LaneIdx32, 32);
 
 impl Encode for [LaneIdx32; 16] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        unsafe { &*(self as *const [LaneIdx32; 16] as *const [u8; 16]) }.encode(w)
+        unsafe { &*(self as *const [LaneIdx32; 16]).cast::<[u8; 16]>() }.encode(w)
     }
 }
 

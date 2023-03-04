@@ -162,7 +162,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     Some((_, discriminant)) => {
                         let pat = v.pat();
 
-                        let encode = gen_encode_discriminant(&repr, &discriminant);
+                        let encode = gen_encode_discriminant(&repr, discriminant);
                         (quote!(#pat => #encode,)).to_tokens(&mut encode_discriminant);
 
                         let decode = gen_decode(v);
