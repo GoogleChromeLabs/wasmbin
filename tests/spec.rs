@@ -180,8 +180,9 @@ impl Tests {
         }
 
         read_proposal_tests!("bulk-memory-operations");
-        read_proposal_tests!(? "tail-call");
+        read_proposal_tests!("reference-types");
         read_proposal_tests!("simd");
+        read_proposal_tests!(? "tail-call");
         read_proposal_tests!(? "threads");
 
         let tests = tests.deduped.into_values().collect::<Vec<_>>();
