@@ -13,7 +13,10 @@
 // limitations under the License.
 
 use crate::io::{DecodeError, PathItem};
+use std::convert::Infallible;
 use thiserror::Error;
+
+pub use wasmbin_derive::Visit;
 
 #[derive(Error, Debug)]
 pub enum VisitError<E> {
@@ -34,16 +37,8 @@ impl<E> VisitError<E> {
     }
 }
 
-#[cfg(feature = "nightly")]
-pub type NeverError = !;
-
-#[cfg(not(feature = "nightly"))]
-#[allow(clippy::empty_enum)]
-#[derive(Debug, thiserror::Error)]
-pub enum NeverError {}
-
-impl From<VisitError<NeverError>> for DecodeError {
-    fn from(err: VisitError<NeverError>) -> Self {
+impl From<VisitError<Infallible>> for DecodeError {
+    fn from(err: VisitError<Infallible>) -> Self {
         match err {
             VisitError::Custom(err) => match err {},
             VisitError::LazyDecode(err) => err,
@@ -58,7 +53,7 @@ pub trait VisitResult {
 }
 
 impl VisitResult for () {
-    type Error = NeverError;
+    type Error = Infallible;
 
     fn into_result(self) -> Result<(), Self::Error> {
         Ok(())
@@ -84,7 +79,6 @@ impl<E> VisitResult for Result<(), E> {
     }
 }
 
-pub use wasmbin_derive::Visit;
 pub trait Visit: 'static + Sized {
     fn visit<'a, T: 'static, R: VisitResult, F: FnMut(&'a T) -> R>(
         &'a self,

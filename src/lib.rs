@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg_attr(feature = "nightly", feature(arbitrary_enum_discriminant, never_type))]
 #![warn(clippy::all, clippy::pedantic)]
 #![allow(
     clippy::missing_errors_doc,

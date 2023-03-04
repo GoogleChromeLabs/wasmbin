@@ -33,12 +33,11 @@ macro_rules! syn_try {
     };
 }
 
-fn discriminant<'v>(v: &VariantInfo<'v>) -> syn::Result<Option<Cow<'v, syn::Expr>>> {
+fn struct_discriminant<'v>(v: &VariantInfo<'v>) -> syn::Result<Option<Cow<'v, syn::Expr>>> {
     v.ast()
-        .discriminant
+        .attrs
         .iter()
-        .map(|(_, discriminant)| Ok(Cow::Borrowed(discriminant)))
-        .chain(v.ast().attrs.iter().filter_map(|attr| match attr {
+        .filter_map(|attr| match attr {
             syn::Attribute {
                 style: syn::AttrStyle::Outer,
                 path,
@@ -56,7 +55,7 @@ fn discriminant<'v>(v: &VariantInfo<'v>) -> syn::Result<Option<Cow<'v, syn::Expr
                 )
             }
             _ => None,
-        }))
+        })
         .try_fold(None, |prev, discriminant| {
             let discriminant = discriminant?;
             if let Some(prev) = prev {
@@ -159,10 +158,8 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
             let mut decode_other = quote!({ return Ok(None) });
 
             for v in s.variants() {
-                let discriminant = syn_try!(discriminant(v));
-
-                match discriminant {
-                    Some(discriminant) => {
+                match v.ast().discriminant {
+                    Some((_, discriminant)) => {
                         let pat = v.pat();
 
                         let encode = gen_encode_discriminant(&repr, &discriminant);
@@ -232,7 +229,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
             assert_eq!(variants.len(), 1);
             let v = &variants[0];
             let decode = gen_decode(v);
-            match syn_try!(discriminant(v)) {
+            match syn_try!(struct_discriminant(v)) {
                 Some(discriminant) => {
                     let name = s.ast().ident.to_string();
                     (
@@ -357,13 +354,6 @@ pub fn wasmbin_discriminants(
         match v.fields {
             syn::Fields::Unit => {}
             _ => seen_non_units = true,
-        }
-        #[cfg(not(feature = "nightly"))]
-        {
-            if let Some((_, discriminant)) = v.discriminant.take() {
-                v.attrs
-                    .push(syn::parse_quote!(#[wasmbin(discriminant = #discriminant)]));
-            }
         }
     }
     assert!(
