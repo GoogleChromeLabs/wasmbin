@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::DecodeErrorKind;
+use crate::io::DecodeError;
 use crate::visit::Visit;
 
 encode_decode_as!(bool, {
     false <=> 0_u8,
     true <=> 1_u8,
 }, |discriminant| {
-    Err(DecodeErrorKind::UnsupportedDiscriminant { ty: "bool", discriminant: discriminant.into() }.into())
+    Err(DecodeError::unsupported_discriminant::<Self>(discriminant))
 });
 
 impl Visit for bool {}

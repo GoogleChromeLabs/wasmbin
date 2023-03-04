@@ -194,8 +194,6 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                 }
             }
 
-            let name = s.ast().ident.to_string();
-
             (
                 quote! {
                     match *self {
@@ -205,7 +203,6 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                 },
                 quote! {
                     gen impl DecodeWithDiscriminant for @Self {
-                        const NAME: &'static str = #name;
                         type Discriminant = #repr;
 
                         fn maybe_decode_with_discriminant(discriminant: #repr, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
@@ -230,31 +227,27 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
             let v = &variants[0];
             let decode = gen_decode(v);
             match syn_try!(struct_discriminant(v)) {
-                Some(discriminant) => {
-                    let name = s.ast().ident.to_string();
-                    (
-                        gen_encode_discriminant(&syn::parse_quote!(u8), &discriminant),
-                        quote! {
-                            gen impl DecodeWithDiscriminant for @Self {
-                                const NAME: &'static str = #name;
-                                type Discriminant = u8;
+                Some(discriminant) => (
+                    gen_encode_discriminant(&syn::parse_quote!(u8), &discriminant),
+                    quote! {
+                        gen impl DecodeWithDiscriminant for @Self {
+                            type Discriminant = u8;
 
-                                fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
-                                    match discriminant {
-                                        #discriminant => #decode.map(Some),
-                                        _ => Ok(None),
-                                    }
+                            fn maybe_decode_with_discriminant(discriminant: u8, r: &mut impl std::io::Read) -> Result<Option<Self>, DecodeError> {
+                                match discriminant {
+                                    #discriminant => #decode.map(Some),
+                                    _ => Ok(None),
                                 }
                             }
+                        }
 
-                            gen impl Decode for @Self {
-                                fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                                    DecodeWithDiscriminant::decode_without_discriminant(r)
-                                }
+                        gen impl Decode for @Self {
+                            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+                                DecodeWithDiscriminant::decode_without_discriminant(r)
                             }
-                        },
-                    )
-                }
+                        }
+                    },
+                ),
                 None => (
                     quote! {},
                     quote! {

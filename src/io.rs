@@ -58,6 +58,16 @@ pub struct DecodeError {
 }
 
 impl DecodeError {
+    pub(crate) fn unsupported_discriminant<T: Decode>(discriminant: impl Into<i128>) -> Self {
+        DecodeErrorKind::UnsupportedDiscriminant {
+            ty: std::any::type_name::<T>(),
+            discriminant: discriminant.into(),
+        }
+        .into()
+    }
+}
+
+impl DecodeError {
     pub(crate) fn in_path(mut self, item: PathItem) -> Self {
         self.path.push(item);
         self
@@ -133,7 +143,6 @@ macro_rules! encode_decode_as {
 }
 
 pub trait DecodeWithDiscriminant: Decode {
-    const NAME: &'static str;
     type Discriminant: Decode + Copy + Into<i128>;
 
     fn maybe_decode_with_discriminant(
@@ -145,13 +154,8 @@ pub trait DecodeWithDiscriminant: Decode {
         discriminant: Self::Discriminant,
         r: &mut impl std::io::Read,
     ) -> Result<Self, DecodeError> {
-        Self::maybe_decode_with_discriminant(discriminant, r)?.ok_or_else(|| {
-            DecodeErrorKind::UnsupportedDiscriminant {
-                ty: Self::NAME,
-                discriminant: discriminant.into(),
-            }
-            .into()
-        })
+        Self::maybe_decode_with_discriminant(discriminant, r)?
+            .ok_or_else(|| DecodeError::unsupported_discriminant::<Self>(discriminant))
     }
 
     fn decode_without_discriminant(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {

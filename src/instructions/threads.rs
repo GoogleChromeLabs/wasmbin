@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::MemArg;
-use crate::io::{DecodeErrorKind, Wasmbin};
+use crate::io::{DecodeError, Wasmbin};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
@@ -42,10 +42,7 @@ macro_rules! def_mem_arg {
 		encode_decode_as!($name, {
 			($name { offset }) <=> (MemArg { align: $num, offset }),
 		}, |arg| {
-			Err(DecodeErrorKind::UnsupportedDiscriminant {
-				ty: stringify!($name),
-				discriminant: arg.offset.into(),
-			}.into())
+			Err(DecodeError::unsupported_discriminant::<Self>(arg.offset))
 		});
 	};
 }

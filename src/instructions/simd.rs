@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::MemArg;
-use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode, Wasmbin};
+use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
@@ -34,11 +34,7 @@ macro_rules! def_lane_idx {
             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
                 let value = u8::decode(r)?;
                 if value >= $num {
-                    return Err(DecodeErrorKind::UnsupportedDiscriminant {
-                        ty: stringify!($name),
-                        discriminant: value.into(),
-                    }
-                    .into());
+                    return Err(DecodeError::unsupported_discriminant::<Self>(value));
                 }
                 Ok(Self(value))
             }
@@ -70,11 +66,7 @@ impl Decode for [LaneIdx32; 16] {
         let bytes = <[u8; 16]>::decode(r)?;
         for &b in &bytes {
             if b >= 32 {
-                return Err(DecodeErrorKind::UnsupportedDiscriminant {
-                    ty: "LaneIdx32",
-                    discriminant: b.into(),
-                }
-                .into());
+                return Err(DecodeError::unsupported_discriminant::<LaneIdx32>(b));
             }
         }
         Ok(unsafe { std::mem::transmute::<[u8; 16], [LaneIdx32; 16]>(bytes) })
