@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::MemArg;
-use crate::io::{DecodeError, Wasmbin};
+use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
@@ -34,13 +34,13 @@ impl<const ALIGN: u32> From<AlignedMemArg<ALIGN>> for MemArg {
 }
 
 impl<const ALIGN: u32> Encode for AlignedMemArg<ALIGN> {
-    fn encode(&self, encoder: &mut Encoder) -> Result<(), EncodeError> {
+    fn encode(&self, encoder: &mut impl std::io::Write) -> std::io::Result<()> {
         MemArg::from(self.clone()).encode(encoder)
     }
 }
 
 impl<const ALIGN: u32> Decode for AlignedMemArg<ALIGN> {
-    fn decode(decoder: &mut Decoder) -> Result<Self, DecodeError> {
+    fn decode(decoder: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let arg = MemArg::decode(decoder)?;
         if arg.align != ALIGN {
             return Err(DecodeError::unsupported_discriminant::<Self>(arg.offset));
