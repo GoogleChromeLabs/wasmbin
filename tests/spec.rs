@@ -153,15 +153,19 @@ fn read_all_tests(path: &Path) -> Vec<Trial> {
 
     macro_rules! read_proposal_tests {
         ($name:literal) => {
+            read_tests_from_dir(&proposals_dir.join($name), &mut tests).context($name)?
+        };
+
+        (? $name:literal) => {
             if cfg!(feature = $name) {
-                read_tests_from_dir(&proposals_dir.join($name), &mut tests).context($name)?
+                read_proposal_tests!($name)
             }
         };
     }
 
-    read_proposal_tests!("tail-call");
+    read_proposal_tests!(? "tail-call");
     read_proposal_tests!("simd");
-    read_proposal_tests!("threads");
+    read_proposal_tests!(? "threads");
 
     read_tests_from_dir(path, &mut tests)?;
 
