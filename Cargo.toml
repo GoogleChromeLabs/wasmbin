@@ -25,10 +25,9 @@ arbitrary = { version = "1.2.3", features = ["derive"] }
 [features]
 default = []
 nightly = ["criterion/real_blackbox", "wasmbin-derive/nightly"]
-proposals = ["extended-name-section", "tail-call", "simd", "threads"]
+proposals = ["extended-name-section", "tail-call", "threads"]
 extended-name-section = []
 tail-call = []
-simd = []
 threads = []
 
 [dev-dependencies]

@@ -320,24 +320,18 @@ pub enum Instruction {
     RefIsNull = 0xD1,
     RefFunc(FuncId) = 0xD2,
     Misc(Misc) = 0xFC,
-    #[cfg(feature = "simd")]
     SIMD(SIMD) = 0xFD,
     #[cfg(feature = "threads")]
     Atomic(Atomic) = 0xFE,
 }
 
 mod misc;
-
 pub use misc::Misc;
 
-#[cfg(feature = "simd")]
 pub mod simd;
-
-#[cfg(feature = "simd")]
 pub use simd::SIMD;
 
 #[cfg(feature = "threads")]
 pub mod threads;
-
 #[cfg(feature = "threads")]
 pub use threads::Atomic;

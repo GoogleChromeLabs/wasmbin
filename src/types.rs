@@ -27,7 +27,6 @@ const OP_CODE_EMPTY_BLOCK: u8 = 0x40;
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ValueType {
-    #[cfg(feature = "simd")]
     V128 = 0x7B,
     F64 = 0x7C,
     F32 = 0x7D,
