@@ -18,39 +18,41 @@ use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 
-macro_rules! def_mem_arg {
-	($name:ident, $num:literal) => {
-		#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-		#[repr(transparent)]
-		pub struct $name {
-			pub offset: u32,
-		}
-
-		impl $name {
-			pub const ALIGN: u32 = $num;
-		}
-
-		impl From<$name> for MemArg {
-			fn from(arg: $name) -> MemArg {
-				MemArg {
-					align: $num,
-					offset: arg.offset,
-				}
-			}
-		}
-
-		encode_decode_as!($name, {
-			($name { offset }) <=> (MemArg { align: $num, offset }),
-		}, |arg| {
-			Err(DecodeError::unsupported_discriminant::<Self>(arg.offset))
-		});
-	};
+#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[repr(transparent)]
+pub struct AlignedMemArg<const ALIGN: u32> {
+    pub offset: u32,
 }
 
-def_mem_arg!(MemArg8, 0x00);
-def_mem_arg!(MemArg16, 0x01);
-def_mem_arg!(MemArg32, 0x02);
-def_mem_arg!(MemArg64, 0x03);
+impl<const ALIGN: u32> From<AlignedMemArg<ALIGN>> for MemArg {
+    fn from(arg: AlignedMemArg<ALIGN>) -> MemArg {
+        MemArg {
+            align: ALIGN,
+            offset: arg.offset,
+        }
+    }
+}
+
+impl<const ALIGN: u32> Encode for AlignedMemArg<ALIGN> {
+    fn encode(&self, encoder: &mut Encoder) -> Result<(), EncodeError> {
+        MemArg::from(self.clone()).encode(encoder)
+    }
+}
+
+impl<const ALIGN: u32> Decode for AlignedMemArg<ALIGN> {
+    fn decode(decoder: &mut Decoder) -> Result<Self, DecodeError> {
+        let arg = MemArg::decode(decoder)?;
+        if arg.align != ALIGN {
+            return Err(DecodeError::unsupported_discriminant::<Self>(arg.offset));
+        }
+        Ok(Self { offset: arg.offset })
+    }
+}
+
+pub type MemArg8 = AlignedMemArg<0>;
+pub type MemArg16 = AlignedMemArg<1>;
+pub type MemArg32 = AlignedMemArg<2>;
+pub type MemArg64 = AlignedMemArg<3>;
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

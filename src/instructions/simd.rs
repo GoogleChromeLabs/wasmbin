@@ -18,63 +18,61 @@ use crate::visit::Visit;
 use crate::wasmbin_discriminants;
 use arbitrary::Arbitrary;
 
-macro_rules! def_lane_idx {
-    ($name:ident, $num:literal) => {
-        #[derive(Debug, PartialEq, Eq, Hash, Clone, Visit)]
-        #[repr(transparent)]
-        pub struct $name(u8);
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Visit)]
+#[repr(transparent)]
+pub struct LaneIdx<const MAX: u8>(u8);
 
-        impl Encode for $name {
-            fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-                self.0.encode(w)
-            }
-        }
-
-        impl Decode for $name {
-            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                let value = u8::decode(r)?;
-                if value >= $num {
-                    return Err(DecodeError::unsupported_discriminant::<Self>(value));
-                }
-                Ok(Self(value))
-            }
-        }
-
-        impl<'a> Arbitrary<'a> for $name {
-            #[allow(clippy::range_minus_one)]
-            fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-                u.int_in_range(0..=($num - 1)).map(Self)
-            }
-        }
-    };
-}
-
-def_lane_idx!(LaneIdx2, 2);
-def_lane_idx!(LaneIdx4, 4);
-def_lane_idx!(LaneIdx8, 8);
-def_lane_idx!(LaneIdx16, 16);
-def_lane_idx!(LaneIdx32, 32);
-
-impl Encode for [LaneIdx32; 16] {
+impl<const MAX: u8> Encode for LaneIdx<MAX> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        unsafe { &*(self as *const [LaneIdx32; 16]).cast::<[u8; 16]>() }.encode(w)
+        self.0.encode(w)
     }
 }
 
-impl Decode for [LaneIdx32; 16] {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let bytes = <[u8; 16]>::decode(r)?;
-        for &b in &bytes {
-            if b >= 32 {
-                return Err(DecodeError::unsupported_discriminant::<LaneIdx32>(b));
-            }
+impl<const MAX: u8> LaneIdx<MAX> {
+    // Private helper as don't want to commit to a public TryFrom API.
+    fn try_from(value: u8) -> Result<Self, DecodeError> {
+        if value >= MAX {
+            return Err(DecodeError::unsupported_discriminant::<Self>(value));
         }
-        Ok(unsafe { std::mem::transmute::<[u8; 16], [LaneIdx32; 16]>(bytes) })
+        Ok(Self(value))
     }
 }
 
-impl_visit_for_iter!([u8; 16]);
-impl_visit_for_iter!([LaneIdx32; 16]);
+impl<const MAX: u8> Decode for LaneIdx<MAX> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        Self::try_from(u8::decode(r)?)
+    }
+}
+
+impl<'a, const MAX: u8> Arbitrary<'a> for LaneIdx<MAX> {
+    #[allow(clippy::range_minus_one)]
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        u.int_in_range(0..=(MAX - 1)).map(Self)
+    }
+}
+
+pub type LaneIdx2 = LaneIdx<2>;
+pub type LaneIdx4 = LaneIdx<4>;
+pub type LaneIdx8 = LaneIdx<8>;
+pub type LaneIdx16 = LaneIdx<16>;
+pub type LaneIdx32 = LaneIdx<32>;
+
+impl<const MAX: u8> Encode for [LaneIdx<MAX>] {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        unsafe { &*(self as *const [LaneIdx<MAX>] as *const [u8]) }.encode(w)
+    }
+}
+
+impl<const MAX: u8, const N: usize> Decode for [LaneIdx<MAX>; N] {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        let bytes = <[u8; N]>::decode(r)?;
+        for &b in &bytes {
+            <LaneIdx<MAX>>::try_from(b)?;
+        }
+        // transmute_copy because Rust can't prove they're the same size
+        Ok(unsafe { std::mem::transmute_copy::<[u8; N], [LaneIdx<MAX>; N]>(&bytes) })
+    }
+}
 
 #[wasmbin_discriminants]
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]

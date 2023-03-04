@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use crate::io::{Decode, DecodeError, Encode, PathItem};
+use crate::visit::Visit;
 
 pub use wasmbin_derive::WasmbinCountable;
 pub trait WasmbinCountable {}
@@ -36,6 +37,15 @@ where
     }
 }
 
+impl<T, const N: usize> Encode for [T; N]
+where
+    [T]: Encode,
+{
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        self.as_slice().encode(w)
+    }
+}
+
 impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let count = usize::decode(r)?;
@@ -45,7 +55,39 @@ impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
     }
 }
 
-impl_visit_for_iter!(Vec<T>);
+macro_rules! impl_visit_for_iter {
+    () => {
+        fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
+            &'a self,
+            f: &mut F,
+        ) -> Result<(), crate::visit::VisitError<E>> {
+            for (i, v) in self.iter().enumerate() {
+                v.visit_child(f)
+                    .map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
+            }
+            Ok(())
+        }
+
+        fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
+            &mut self,
+            f: &mut F,
+        ) -> Result<(), crate::visit::VisitError<E>> {
+            for (i, v) in self.iter_mut().enumerate() {
+                v.visit_child_mut(f)
+                    .map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
+            }
+            Ok(())
+        }
+    };
+}
+
+impl<T: Visit> Visit for Vec<T> {
+    impl_visit_for_iter!();
+}
+
+impl<T: Visit, const N: usize> Visit for [T; N] {
+    impl_visit_for_iter!();
+}
 
 impl<T: crate::visit::Visit> crate::visit::Visit for Option<T> {
     fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(

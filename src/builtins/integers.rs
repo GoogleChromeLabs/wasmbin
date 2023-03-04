@@ -16,27 +16,13 @@ use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 use std::convert::TryFrom;
 
-macro_rules! def_byte_array {
-    ($count:literal) => {
-        impl Encode for [u8; $count] {
-            fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-                w.write_all(self)
-            }
-        }
-
-        impl Decode for [u8; $count] {
-            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                let mut dest = [0_u8; $count];
-                r.read_exact(&mut dest)?;
-                Ok(dest)
-            }
-        }
-    };
+impl<const N: usize> Decode for [u8; N] {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        let mut dest = [0_u8; N];
+        r.read_exact(&mut dest)?;
+        Ok(dest)
+    }
 }
-
-def_byte_array!(4);
-def_byte_array!(8);
-def_byte_array!(16);
 
 impl Encode for u8 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {

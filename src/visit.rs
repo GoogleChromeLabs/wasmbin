@@ -128,29 +128,3 @@ pub trait Visit: 'static + Sized {
         Ok(())
     }
 }
-
-macro_rules! impl_visit_for_iter {
-    ($ty:tt $(<$param:ident>)?) => {
-        impl$(<$param: crate::visit::Visit>)? crate::visit::Visit for $ty $(<$param>)? {
-            fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
-                &'a self,
-                f: &mut F,
-            ) -> Result<(), crate::visit::VisitError<E>> {
-                for (i, v) in self.iter().enumerate() {
-                    v.visit_child(f).map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
-                }
-                Ok(())
-            }
-
-            fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
-                &mut self,
-                f: &mut F,
-            ) -> Result<(), crate::visit::VisitError<E>> {
-                for (i, v) in self.iter_mut().enumerate() {
-                    v.visit_child_mut(f).map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
-                }
-                Ok(())
-            }
-        }
-    };
-}
