@@ -22,7 +22,7 @@ use std::cmp::Ordering;
 const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00];
 
 #[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct MagicAndVersion;
+struct MagicAndVersion;
 
 encode_decode_as!(MagicAndVersion, {
     MagicAndVersion <=> MAGIC_AND_VERSION,
@@ -30,11 +30,28 @@ encode_decode_as!(MagicAndVersion, {
     Err(DecodeErrorKind::InvalidMagic { actual }.into())
 });
 
-#[derive(Wasmbin, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin)]
+#[repr(transparent)]
+struct ModuleRepr {
+    magic_and_version: MagicAndVersion,
+    sections: Vec<Section>,
+}
+
+#[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Module {
-    #[doc(hidden)]
-    pub magic_and_version: MagicAndVersion,
     pub sections: Vec<Section>,
+}
+
+impl Encode for Module {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        unsafe { &*(self as *const Module).cast::<ModuleRepr>() }.encode(w)
+    }
+}
+
+impl Decode for Module {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        ModuleRepr::decode(r).map(|repr| unsafe { std::mem::transmute::<ModuleRepr, Module>(repr) })
+    }
 }
 
 impl Module {
