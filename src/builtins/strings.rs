@@ -15,6 +15,9 @@
 use super::RawBlob;
 use crate::io::{Decode, DecodeError, Encode};
 use crate::visit::Visit;
+use std::convert::TryFrom;
+
+pub type String = bytestring::ByteString;
 
 impl Encode for str {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -24,13 +27,14 @@ impl Encode for str {
 
 impl Encode for String {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        self.as_str().encode(w)
+        str::encode(self, w)
     }
 }
 
 impl Decode for String {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Ok(String::from_utf8(RawBlob::decode(r)?.contents)?)
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+        let bytes = <RawBlob<bytes::Bytes>>::decode(r)?;
+        Ok(String::try_from(bytes.contents)?)
     }
 }
 

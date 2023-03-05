@@ -49,13 +49,13 @@ impl Encode for Module {
 }
 
 impl Decode for Module {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         ModuleRepr::decode(r).map(|repr| unsafe { std::mem::transmute::<ModuleRepr, Module>(repr) })
     }
 }
 
 impl Module {
-    pub fn decode_from(mut r: impl std::io::Read) -> Result<Module, DecodeError> {
+    pub fn decode_from(mut r: (impl try_buf::TryBuf + bytes::Buf)) -> Result<Module, DecodeError> {
         Self::decode(&mut r)
     }
 

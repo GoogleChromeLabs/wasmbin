@@ -19,13 +19,13 @@ pub use wasmbin_derive::Wasmbin;
 #[derive(Error, Debug)]
 pub enum DecodeErrorKind {
     #[error("{0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] try_buf::ErrorKind),
 
     #[error("{0}")]
     Leb128(#[from] leb128::read::Error),
 
     #[error("{0}")]
-    Utf8(#[from] std::string::FromUtf8Error),
+    Utf8(#[from] std::str::Utf8Error),
 
     #[error("Could not recognise discriminant 0x{discriminant:X} for type {ty}")]
     UnsupportedDiscriminant {
@@ -114,7 +114,7 @@ pub trait Encode {
 }
 
 pub trait Decode: Sized {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError>;
 }
 
 macro_rules! encode_decode_as {
@@ -132,7 +132,7 @@ macro_rules! encode_decode_as {
 
         impl crate::io::Decode for $ty {
             #[allow(unused_parens)]
-            fn decode(r: &mut impl std::io::Read) -> Result<Self, crate::io::DecodeError> {
+            fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, crate::io::DecodeError> {
                 Ok(match crate::io::Decode::decode(r)? {
                     $($rhs => $lhs,)*
                     $($other => return $other_handler)?
@@ -147,18 +147,20 @@ pub trait DecodeWithDiscriminant: Decode {
 
     fn maybe_decode_with_discriminant(
         discriminant: Self::Discriminant,
-        r: &mut impl std::io::Read,
+        r: &mut (impl try_buf::TryBuf + bytes::Buf),
     ) -> Result<Option<Self>, DecodeError>;
 
     fn decode_with_discriminant(
         discriminant: Self::Discriminant,
-        r: &mut impl std::io::Read,
+        r: &mut (impl try_buf::TryBuf + bytes::Buf),
     ) -> Result<Self, DecodeError> {
         Self::maybe_decode_with_discriminant(discriminant, r)?
             .ok_or_else(|| DecodeError::unsupported_discriminant::<Self>(discriminant))
     }
 
-    fn decode_without_discriminant(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode_without_discriminant(
+        r: &mut (impl try_buf::TryBuf + bytes::Buf),
+    ) -> Result<Self, DecodeError> {
         Self::decode_with_discriminant(Self::Discriminant::decode(r)?, r)
     }
 }

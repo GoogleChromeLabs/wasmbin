@@ -15,20 +15,15 @@
 use crate::builtins::WasmbinCountable;
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::{Visit, VisitError};
+use bytes::Bytes;
 use custom_debug::Debug as CustomDebug;
 use once_cell::sync::OnceCell;
 use std::hash::Hash;
 
 #[derive(CustomDebug, Clone)]
 enum LazyStatus<T> {
-    FromInput {
-        #[debug(with = "custom_debug::hexbuf_str")]
-        raw: Vec<u8>,
-        parsed: OnceCell<T>,
-    },
-    Output {
-        value: T,
-    },
+    FromInput { raw: Bytes, parsed: OnceCell<T> },
+    Output { value: T },
 }
 
 #[derive(Clone)]
@@ -37,7 +32,7 @@ pub struct Lazy<T> {
 }
 
 impl<T> Lazy<T> {
-    pub fn from_raw(raw: Vec<u8>) -> Self {
+    pub fn from_raw(raw: Bytes) -> Self {
         Lazy {
             status: LazyStatus::FromInput {
                 raw,
@@ -78,8 +73,8 @@ impl<T: Encode> Encode for Lazy<T> {
 }
 
 impl<T: Decode> Decode for Lazy<T> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Vec::decode(r).map(Self::from_raw)
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+        Bytes::decode(r).map(Self::from_raw)
     }
 }
 

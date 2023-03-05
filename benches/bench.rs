@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::fs::File;
 use std::hint::black_box;
 use tempfile::tempfile;
 use wasmbin::io::DecodeError;
@@ -38,7 +37,7 @@ fn deep_module() -> Module {
             locals: Default::default(),
             expr,
         })]
-        .into()]
+        .into()],
     }
 }
 
@@ -50,25 +49,6 @@ fn unlazify<T: Visit>(wasm: T) -> Result<T, DecodeError> {
             VisitError::Custom(err) => match err {},
         },
     }
-}
-
-fn bench_parse(c: &mut Criterion) {
-    c.bench_function(concat!(stringify!($name), "::bench_parse"), |b| {
-        b.iter(|| {
-            let f = File::open("benches/fixture.wasm").unwrap();
-            unlazify(Module::decode_from(f).unwrap())
-        })
-    });
-}
-
-fn bench_parse_buf(c: &mut Criterion) {
-    c.bench_function(concat!(stringify!($name), "::bench_parse_buf"), |b| {
-        b.iter(|| {
-            let f = File::open("benches/fixture.wasm").unwrap();
-            let f = std::io::BufReader::new(f);
-            unlazify(Module::decode_from(f).unwrap())
-        })
-    });
 }
 
 fn bench_parse_vec(c: &mut Criterion) {
@@ -141,8 +121,6 @@ criterion_group! {
     name = benches;
     config = Criterion::default().sample_size(20);
     targets =
-        bench_parse,
-        bench_parse_buf,
         bench_parse_vec,
         bench_parse_deep_module,
         bench_write,

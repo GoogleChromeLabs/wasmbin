@@ -24,3 +24,4 @@ pub use blob::{Blob, RawBlob};
 pub use collections::WasmbinCountable;
 pub use floats::FloatConst;
 pub use lazy::Lazy;
+pub use strings::String;

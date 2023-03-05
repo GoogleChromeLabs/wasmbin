@@ -13,8 +13,6 @@
 // limitations under the License.
 
 use anyhow::Context;
-use std::fs::File;
-use std::io::{BufReader, Seek};
 use structopt::StructOpt;
 use wasmbin::io::DecodeError;
 use wasmbin::sections::{Kind, Section};
@@ -69,14 +67,9 @@ fn unlazify_with_opt<T: Visit>(wasm: &mut T, include_raw: bool) -> Result<(), De
 
 fn main() -> anyhow::Result<()> {
     let opts = DumpOpts::from_args();
-    let f = File::open(opts.filename)?;
-    let mut f = BufReader::new(f);
-    let mut m = Module::decode_from(&mut f).with_context(|| {
-        format!(
-            "Parsing error at offset 0x{:08X}",
-            f.stream_position().unwrap()
-        )
-    })?;
+    let mut f = std::io::Cursor::new(std::fs::read(opts.filename)?);
+    let mut m = Module::decode_from(&mut f)
+        .with_context(|| format!("Parsing error at offset 0x{:08X}", f.position()))?;
     let filter: Box<dyn Fn(&Section) -> bool> = match opts.section {
         DumpSection::All => Box::new(|_s: &Section| true) as _,
         DumpSection::Custom { name } => Box::new(move |s: &Section| {

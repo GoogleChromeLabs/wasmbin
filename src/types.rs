@@ -52,7 +52,7 @@ impl Encode for BlockType {
 }
 
 impl Decode for BlockType {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         let discriminant = u8::decode(r)?;
         if discriminant == OP_CODE_EMPTY_BLOCK {
             return Ok(BlockType::Empty);
@@ -68,8 +68,7 @@ impl Decode for BlockType {
             // type indices.
             //
             // To recover the LEB128 sequence, we need to chain it back.
-            let buf = [discriminant];
-            let mut r = std::io::Read::chain(&buf[..], r);
+            let mut r = bytes::Buf::chain(std::slice::from_ref(&discriminant), r);
             let as_i64 = i64::decode(&mut r)?;
             // These indices are encoded as positive signed integers.
             // Convert them to unsigned integers and error out if they're out of range.

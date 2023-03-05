@@ -15,6 +15,7 @@
 use crate::io::{Decode, DecodeError, Encode, PathItem};
 use crate::visit::Visit;
 
+use bytes::Bytes;
 pub use wasmbin_derive::WasmbinCountable;
 pub trait WasmbinCountable {}
 
@@ -37,6 +38,14 @@ where
     }
 }
 
+impl Encode for Bytes {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        <[u8]>::encode(self, w)
+    }
+}
+
+impl Visit for Bytes {}
+
 impl<T, const N: usize> Encode for [T; N]
 where
     [T]: Encode,
@@ -47,7 +56,7 @@ where
 }
 
 impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         let count = usize::decode(r)?;
         (0..count)
             .map(|i| T::decode(r).map_err(move |err| err.in_path(PathItem::Index(i))))

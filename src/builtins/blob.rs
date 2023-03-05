@@ -16,9 +16,10 @@ use crate::builtins::{Lazy, WasmbinCountable};
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 use crate::Arbitrary;
+use bytes::{Buf, Bytes};
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct RawBlob<T = Vec<u8>> {
+pub struct RawBlob<T = Bytes> {
     pub contents: T,
 }
 
@@ -31,11 +32,11 @@ impl<T: AsRef<[u8]>> Encode for RawBlob<T> {
 }
 
 impl<T: Decode> Decode for RawBlob<T> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let size = u32::decode(r)?;
-        let mut taken = std::io::Read::take(r, size.into());
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+        let size = usize::decode(r)?;
+        let mut taken = Buf::take(r, size);
         let contents = T::decode(&mut taken)?;
-        if taken.limit() != 0 {
+        if taken.has_remaining() {
             return Err(DecodeErrorKind::UnrecognizedData.into());
         }
         Ok(RawBlob { contents })
@@ -89,7 +90,7 @@ impl<T: Decode + Encode> Encode for Blob<T> {
 }
 
 impl<T: Decode> Decode for Blob<T> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         let contents: Lazy<T> = RawBlob::decode(r)?.contents;
         Ok(Self { contents })
     }

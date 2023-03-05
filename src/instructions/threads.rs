@@ -39,7 +39,7 @@ impl<const ALIGN: u32> Encode for AlignedMemArg<ALIGN> {
 }
 
 impl<const ALIGN: u32> Decode for AlignedMemArg<ALIGN> {
-    fn decode(decoder: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(decoder: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         let arg = MemArg::decode(decoder)?;
         if arg.align != ALIGN {
             return Err(DecodeError::unsupported_discriminant::<Self>(arg.offset));

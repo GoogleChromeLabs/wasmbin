@@ -14,7 +14,7 @@
 
 use crate::builtins::Lazy;
 use crate::builtins::WasmbinCountable;
-use crate::builtins::{Blob, RawBlob};
+use crate::builtins::{Blob, RawBlob, String};
 #[cfg(feature = "exception-handling")]
 use crate::indices::ExceptionId;
 #[cfg(feature = "extended-name-section")]
@@ -27,6 +27,7 @@ use crate::types::ExceptionType;
 use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
 use crate::visit::{Visit, VisitError};
 use crate::Arbitrary;
+use bytes::Bytes;
 use custom_debug::Debug as CustomDebug;
 use std::convert::TryFrom;
 use thiserror::Error;
@@ -83,7 +84,7 @@ impl Encode for [NameSubSection] {
 }
 
 impl Decode for Vec<NameSubSection> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         let mut sub = Vec::new();
         while let Some(disc) = Option::decode(r)? {
             let i = sub.len();
@@ -111,9 +112,7 @@ pub struct ProducerVersionedName {
 #[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawCustomSection {
     pub name: String,
-
-    #[debug(with = "custom_debug::hexbuf_str")]
-    pub data: Vec<u8>,
+    pub data: Bytes,
 }
 
 macro_rules! define_custom_sections {
@@ -128,7 +127,7 @@ macro_rules! define_custom_sections {
             pub fn name(&self) -> &str {
                 match self {
                     $(Self::$name(_) => $disc,)*
-                    Self::Other(raw) => raw.name.as_str(),
+                    Self::Other(raw) => &raw.name,
                 }
             }
         }
@@ -146,9 +145,9 @@ macro_rules! define_custom_sections {
         }
 
         impl Decode for CustomSection {
-            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+            fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
                 let raw = RawCustomSection::decode(r)?;
-                Ok(match raw.name.as_str() {
+                Ok(match raw.name.as_ref() {
                     $($disc => CustomSection::$name(Lazy::from_raw(raw.data)),)*
                     _ => CustomSection::Other(raw)
                 })
@@ -318,7 +317,6 @@ pub enum DataInit {
 #[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Data {
     pub init: DataInit,
-    #[debug(with = "custom_debug::hexbuf_str")]
     pub blob: RawBlob,
 }
 
@@ -529,7 +527,7 @@ impl Encode for [Section] {
 }
 
 impl Decode for Vec<Section> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         let mut sections = Vec::new();
         let mut section_order_tracker = SectionOrderTracker::default();
         while let Some(disc) = Option::decode(r)? {

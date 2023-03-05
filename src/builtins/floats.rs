@@ -36,7 +36,7 @@ macro_rules! def_float {
         }
 
         impl Decode for $ty {
-            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+            fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
                 Decode::decode(r).map($ty::from_le_bytes)
             }
         }

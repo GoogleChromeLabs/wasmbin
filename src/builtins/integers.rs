@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
+use crate::io::{Decode, DecodeError, Encode};
 use crate::visit::Visit;
+use bytes::Bytes;
 use std::convert::TryFrom;
 
 impl<const N: usize> Decode for [u8; N] {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         let mut dest = [0_u8; N];
-        r.read_exact(&mut dest)?;
+        r.try_copy_to_slice(&mut dest)?;
         Ok(dest)
     }
 }
@@ -37,32 +38,20 @@ impl Encode for [u8] {
 }
 
 impl Decode for u8 {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut dest = 0;
-        r.read_exact(std::slice::from_mut(&mut dest))?;
-        Ok(dest)
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+        Ok(r.try_get_u8()?)
     }
 }
 
 impl Decode for Option<u8> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut dest = 0;
-        loop {
-            return match r.read(std::slice::from_mut(&mut dest)) {
-                Ok(0) => Ok(None),
-                Ok(_) => Ok(Some(dest)),
-                Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(err) => Err(DecodeErrorKind::Io(err).into()),
-            };
-        }
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+        Ok(r.try_get_u8().ok())
     }
 }
 
-impl Decode for Vec<u8> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut dest = Vec::new();
-        r.read_to_end(&mut dest)?;
-        Ok(dest)
+impl Decode for Bytes {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+        Ok(r.copy_to_bytes(r.remaining()))
     }
 }
 
@@ -77,11 +66,11 @@ macro_rules! def_integer {
         }
 
         impl Decode for $ty {
-            fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                const LIMIT: u64 = (std::mem::size_of::<$ty>() * 8 / 7) as u64 + 1;
+            fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+                const LIMIT: usize = (std::mem::size_of::<$ty>() * 8 / 7) + 1;
 
-                let mut r = std::io::Read::take(r, LIMIT);
-                let as_64 = leb128::read::$leb128_method(&mut r)?;
+                let r = bytes::Buf::take(r, LIMIT);
+                let as_64 = leb128::read::$leb128_method(&mut bytes::Buf::reader(r))?;
                 let res = Self::try_from(as_64)?;
 
                 Ok(res)
@@ -107,7 +96,7 @@ impl Encode for usize {
 }
 
 impl Decode for usize {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
         Ok(usize::try_from(u32::decode(r)?)?)
     }
 }
