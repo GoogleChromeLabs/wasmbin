@@ -111,5 +111,3 @@ impl Decode for usize {
         Ok(usize::try_from(u32::decode(r)?)?)
     }
 }
-
-impl Visit for usize {}
