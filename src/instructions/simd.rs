@@ -16,10 +16,35 @@ use super::MemArg;
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
 use arbitrary::Arbitrary;
+use std::convert::TryFrom;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Visit)]
 #[repr(transparent)]
 pub struct LaneIdx<const MAX: u8>(u8);
+
+impl<const MAX: u8> std::fmt::Debug for LaneIdx<MAX> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "LaneIdx({}/{MAX})", self.0)
+    }
+}
+
+impl<const MAX: u8> From<LaneIdx<MAX>> for u8 {
+    fn from(idx: LaneIdx<MAX>) -> u8 {
+        idx.0
+    }
+}
+
+impl<const MAX: u8> TryFrom<u8> for LaneIdx<MAX> {
+    type Error = u8;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if value < MAX {
+            Ok(Self(value))
+        } else {
+            Err(value)
+        }
+    }
+}
 
 impl<const MAX: u8> Encode for LaneIdx<MAX> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -29,17 +54,14 @@ impl<const MAX: u8> Encode for LaneIdx<MAX> {
 
 impl<const MAX: u8> LaneIdx<MAX> {
     // Private helper as don't want to commit to a public TryFrom API.
-    fn try_from(value: u8) -> Result<Self, DecodeError> {
-        if value >= MAX {
-            return Err(DecodeError::unsupported_discriminant::<Self>(value));
-        }
-        Ok(Self(value))
+    fn decode_from(value: u8) -> Result<Self, DecodeError> {
+        Self::try_from(value).map_err(DecodeError::unsupported_discriminant::<Self>)
     }
 }
 
 impl<const MAX: u8> Decode for LaneIdx<MAX> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Self::try_from(u8::decode(r)?)
+        Self::decode_from(u8::decode(r)?)
     }
 }
 
@@ -66,7 +88,7 @@ impl<const MAX: u8, const N: usize> Decode for [LaneIdx<MAX>; N] {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let bytes = <[u8; N]>::decode(r)?;
         for &b in &bytes {
-            <LaneIdx<MAX>>::try_from(b)?;
+            <LaneIdx<MAX>>::decode_from(b)?;
         }
         // transmute_copy because Rust can't prove they're the same size
         Ok(unsafe { std::mem::transmute_copy::<[u8; N], [LaneIdx<MAX>; N]>(&bytes) })
