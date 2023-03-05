@@ -20,21 +20,21 @@ use std::convert::TryFrom;
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Visit)]
 #[repr(transparent)]
-pub struct LaneIdx<const MAX: u8>(u8);
+pub struct LaneId<const MAX: u8>(u8);
 
-impl<const MAX: u8> std::fmt::Debug for LaneIdx<MAX> {
+impl<const MAX: u8> std::fmt::Debug for LaneId<MAX> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "LaneIdx({}/{MAX})", self.0)
+        write!(f, "LaneId#{}", self.0)
     }
 }
 
-impl<const MAX: u8> From<LaneIdx<MAX>> for u8 {
-    fn from(idx: LaneIdx<MAX>) -> u8 {
-        idx.0
+impl<const MAX: u8> From<LaneId<MAX>> for u8 {
+    fn from(id: LaneId<MAX>) -> u8 {
+        id.0
     }
 }
 
-impl<const MAX: u8> TryFrom<u8> for LaneIdx<MAX> {
+impl<const MAX: u8> TryFrom<u8> for LaneId<MAX> {
     type Error = u8;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
@@ -46,53 +46,53 @@ impl<const MAX: u8> TryFrom<u8> for LaneIdx<MAX> {
     }
 }
 
-impl<const MAX: u8> Encode for LaneIdx<MAX> {
+impl<const MAX: u8> Encode for LaneId<MAX> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         self.0.encode(w)
     }
 }
 
-impl<const MAX: u8> LaneIdx<MAX> {
+impl<const MAX: u8> LaneId<MAX> {
     // Private helper as don't want to commit to a public TryFrom API.
     fn decode_from(value: u8) -> Result<Self, DecodeError> {
         Self::try_from(value).map_err(DecodeError::unsupported_discriminant::<Self>)
     }
 }
 
-impl<const MAX: u8> Decode for LaneIdx<MAX> {
+impl<const MAX: u8> Decode for LaneId<MAX> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Self::decode_from(u8::decode(r)?)
     }
 }
 
 #[cfg(feature = "arbitrary")]
-impl<'a, const MAX: u8> Arbitrary<'a> for LaneIdx<MAX> {
+impl<'a, const MAX: u8> Arbitrary<'a> for LaneId<MAX> {
     #[allow(clippy::range_minus_one)]
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         u.int_in_range(0..=(MAX - 1)).map(Self)
     }
 }
 
-pub type LaneIdx2 = LaneIdx<2>;
-pub type LaneIdx4 = LaneIdx<4>;
-pub type LaneIdx8 = LaneIdx<8>;
-pub type LaneIdx16 = LaneIdx<16>;
-pub type LaneIdx32 = LaneIdx<32>;
+pub type LaneId2 = LaneId<2>;
+pub type LaneId4 = LaneId<4>;
+pub type LaneId8 = LaneId<8>;
+pub type LaneId16 = LaneId<16>;
+pub type LaneId32 = LaneId<32>;
 
-impl<const MAX: u8> Encode for [LaneIdx<MAX>] {
+impl<const MAX: u8> Encode for [LaneId<MAX>] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        unsafe { &*(self as *const [LaneIdx<MAX>] as *const [u8]) }.encode(w)
+        unsafe { &*(self as *const [LaneId<MAX>] as *const [u8]) }.encode(w)
     }
 }
 
-impl<const MAX: u8, const N: usize> Decode for [LaneIdx<MAX>; N] {
+impl<const MAX: u8, const N: usize> Decode for [LaneId<MAX>; N] {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let bytes = <[u8; N]>::decode(r)?;
         for &b in &bytes {
-            <LaneIdx<MAX>>::decode_from(b)?;
+            <LaneId<MAX>>::decode_from(b)?;
         }
         // transmute_copy because Rust can't prove they're the same size
-        Ok(unsafe { std::mem::transmute_copy::<[u8; N], [LaneIdx<MAX>; N]>(&bytes) })
+        Ok(unsafe { std::mem::transmute_copy::<[u8; N], [LaneId<MAX>; N]>(&bytes) })
     }
 }
 
@@ -112,7 +112,7 @@ pub enum SIMD {
     V128Load64Splat(MemArg) = 0x0A,
     V128Store(MemArg) = 0x0B,
     V128Const([u8; 16]) = 0x0C,
-    I8x16Shuffle([LaneIdx32; 16]) = 0x0D,
+    I8x16Shuffle([LaneId32; 16]) = 0x0D,
     I8x16Swizzle = 0x0E,
     I8x16Splat = 0x0F,
     I16x8Splat = 0x10,
@@ -120,20 +120,20 @@ pub enum SIMD {
     I64x2Splat = 0x12,
     F32x4Splat = 0x13,
     F64x2Splat = 0x14,
-    I8x16ExtractLaneS(LaneIdx16) = 0x15,
-    I8x16ExtractLaneU(LaneIdx16) = 0x16,
-    I8x16ReplaceLane(LaneIdx16) = 0x17,
-    I16x8ExtractLaneS(LaneIdx8) = 0x18,
-    I16x8ExtractLaneU(LaneIdx8) = 0x19,
-    I16x8ReplaceLane(LaneIdx8) = 0x1A,
-    I32x4ExtractLane(LaneIdx4) = 0x1B,
-    I32x4ReplaceLane(LaneIdx4) = 0x1C,
-    I64x2ExtractLane(LaneIdx2) = 0x1D,
-    I64x2ReplaceLane(LaneIdx2) = 0x1E,
-    F32x4ExtractLane(LaneIdx4) = 0x1F,
-    F32x4ReplaceLane(LaneIdx4) = 0x20,
-    F64x2ExtractLane(LaneIdx2) = 0x21,
-    F64x2ReplaceLane(LaneIdx2) = 0x22,
+    I8x16ExtractLaneS(LaneId16) = 0x15,
+    I8x16ExtractLaneU(LaneId16) = 0x16,
+    I8x16ReplaceLane(LaneId16) = 0x17,
+    I16x8ExtractLaneS(LaneId8) = 0x18,
+    I16x8ExtractLaneU(LaneId8) = 0x19,
+    I16x8ReplaceLane(LaneId8) = 0x1A,
+    I32x4ExtractLane(LaneId4) = 0x1B,
+    I32x4ReplaceLane(LaneId4) = 0x1C,
+    I64x2ExtractLane(LaneId2) = 0x1D,
+    I64x2ReplaceLane(LaneId2) = 0x1E,
+    F32x4ExtractLane(LaneId4) = 0x1F,
+    F32x4ReplaceLane(LaneId4) = 0x20,
+    F64x2ExtractLane(LaneId2) = 0x21,
+    F64x2ReplaceLane(LaneId2) = 0x22,
     I8x16Eq = 0x23,
     I8x16Ne = 0x24,
     I8x16LtS = 0x25,
@@ -309,14 +309,14 @@ pub enum SIMD {
     I64x2ExtmulHighI32x4U = 0xDF,
     I16x8Q15mulrSatS = 0x82,
     V128AnyTrue = 0x53,
-    V128Load8Lane(MemArg, LaneIdx16) = 0x54,
-    V128Load16Lane(MemArg, LaneIdx8) = 0x55,
-    V128Load32Lane(MemArg, LaneIdx4) = 0x56,
-    V128Load64Lane(MemArg, LaneIdx2) = 0x57,
-    V128Store8Lane(MemArg, LaneIdx16) = 0x58,
-    V128Store16Lane(MemArg, LaneIdx8) = 0x59,
-    V128Store32Lane(MemArg, LaneIdx4) = 0x5A,
-    V128Store64Lane(MemArg, LaneIdx2) = 0x5B,
+    V128Load8Lane(MemArg, LaneId16) = 0x54,
+    V128Load16Lane(MemArg, LaneId8) = 0x55,
+    V128Load32Lane(MemArg, LaneId4) = 0x56,
+    V128Load64Lane(MemArg, LaneId2) = 0x57,
+    V128Store8Lane(MemArg, LaneId16) = 0x58,
+    V128Store16Lane(MemArg, LaneId8) = 0x59,
+    V128Store32Lane(MemArg, LaneId4) = 0x5A,
+    V128Store64Lane(MemArg, LaneId2) = 0x5B,
     I64x2Eq = 0xD6,
     I64x2Ne = 0xD7,
     I64x2LtS = 0xD8,
