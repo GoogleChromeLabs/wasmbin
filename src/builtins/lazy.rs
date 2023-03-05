@@ -120,7 +120,7 @@ impl<T: Decode> Lazy<T> {
         if let LazyStatus::Output { value } = &mut self.status {
             return Ok(value);
         }
-        unsafe { std::hint::unreachable_unchecked() }
+        unreachable!()
     }
 
     pub fn try_into_contents(self) -> Result<T, DecodeError> {

@@ -94,8 +94,6 @@ impl Module {
         if insert {
             self.sections.insert(index, insert_callback().into());
         }
-        unsafe { self.sections.get_unchecked_mut(index) }
-            .try_as_mut()
-            .unwrap_or_else(|| unsafe { std::hint::unreachable_unchecked() })
+        self.sections[index].try_as_mut().unwrap()
     }
 }
