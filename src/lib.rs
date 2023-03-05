@@ -21,6 +21,12 @@
 )]
 #![doc = include_str!("../README.md")]
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
+#[cfg(not(feature = "arbitrary"))]
+use wasmbin_derive::Noop as Arbitrary;
+
 #[macro_use]
 pub mod io;
 #[macro_use]

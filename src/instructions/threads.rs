@@ -15,7 +15,7 @@
 use super::MemArg;
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
-use arbitrary::Arbitrary;
+use crate::Arbitrary;
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(transparent)]

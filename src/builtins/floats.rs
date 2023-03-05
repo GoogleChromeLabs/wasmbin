@@ -14,7 +14,7 @@
 
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
-use arbitrary::Arbitrary;
+use crate::Arbitrary;
 
 /// A wrapper around floats that treats `NaN`s as equal.
 ///

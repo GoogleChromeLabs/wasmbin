@@ -14,7 +14,7 @@ libfuzzer-sys = "0.4.2"
 
 [dependencies.wasmbin]
 path = ".."
-default-features = false
+features = ["proposals", "arbitrary"]
 
 # Prevent this from interfering with workspaces
 [workspace]

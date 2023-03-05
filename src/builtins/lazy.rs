@@ -15,7 +15,6 @@
 use crate::builtins::WasmbinCountable;
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::{Visit, VisitError};
-use arbitrary::Arbitrary;
 use custom_debug::Debug as CustomDebug;
 use once_cell::sync::OnceCell;
 use std::hash::Hash;
@@ -159,7 +158,8 @@ impl<T: Decode + Hash> Hash for Lazy<T> {
     }
 }
 
-impl<'a, T: Arbitrary<'a>> Arbitrary<'a> for Lazy<T> {
+#[cfg(feature = "arbitrary")]
+impl<'a, T: arbitrary::Arbitrary<'a>> arbitrary::Arbitrary<'a> for Lazy<T> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         T::arbitrary(u).map(Self::from)
     }

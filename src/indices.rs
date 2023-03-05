@@ -15,7 +15,7 @@
 use crate::builtins::WasmbinCountable;
 use crate::io::Wasmbin;
 use crate::visit::Visit;
-use arbitrary::Arbitrary;
+use crate::Arbitrary;
 
 macro_rules! newtype_id {
     ($name:ident) => {

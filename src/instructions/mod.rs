@@ -17,7 +17,7 @@ use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId}
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::types::{BlockType, RefType, ValueType};
 use crate::visit::Visit;
-use arbitrary::Arbitrary;
+use crate::Arbitrary;
 use thiserror::Error;
 
 const OP_CODE_BLOCK_START: u8 = 0x02;

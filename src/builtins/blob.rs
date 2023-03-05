@@ -15,7 +15,7 @@
 use crate::builtins::{Lazy, WasmbinCountable};
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
-use arbitrary::Arbitrary;
+use crate::Arbitrary;
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawBlob<T = Vec<u8>> {

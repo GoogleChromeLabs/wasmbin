@@ -15,7 +15,7 @@
 use super::MemArg;
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
-use arbitrary::Arbitrary;
+use crate::Arbitrary;
 use std::convert::TryFrom;
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Visit)]
@@ -65,6 +65,7 @@ impl<const MAX: u8> Decode for LaneIdx<MAX> {
     }
 }
 
+#[cfg(feature = "arbitrary")]
 impl<'a, const MAX: u8> Arbitrary<'a> for LaneIdx<MAX> {
     #[allow(clippy::range_minus_one)]
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {

@@ -16,7 +16,7 @@ use crate::builtins::Blob;
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode, Wasmbin};
 use crate::sections::{Section, StdPayload};
 use crate::visit::Visit;
-use arbitrary::Arbitrary;
+use crate::Arbitrary;
 use std::cmp::Ordering;
 
 const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00];

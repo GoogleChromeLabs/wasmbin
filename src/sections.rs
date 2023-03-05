@@ -26,7 +26,7 @@ use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, W
 use crate::types::ExceptionType;
 use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
 use crate::visit::{Visit, VisitError};
-use arbitrary::Arbitrary;
+use crate::Arbitrary;
 use custom_debug::Debug as CustomDebug;
 use std::convert::TryFrom;
 use thiserror::Error;
