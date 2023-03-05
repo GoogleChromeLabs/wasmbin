@@ -94,6 +94,8 @@ impl Module {
         if insert {
             self.sections.insert(index, insert_callback().into());
         }
-        self.sections[index].try_as_mut().unwrap()
+        self.sections[index]
+            .try_as_mut()
+            .expect("internal error: couldn't convert back just inserted section")
     }
 }
