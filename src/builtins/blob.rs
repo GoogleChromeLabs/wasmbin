@@ -69,9 +69,7 @@ impl<T: Decode> Blob<T> {
 
 impl<T: Decode + std::fmt::Debug> std::fmt::Debug for Blob<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.write_str("Blob(")?;
-        self.contents.fmt(f)?;
-        f.write_str(")")
+        self.contents.fmt(f)
     }
 }
 
