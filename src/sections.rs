@@ -190,6 +190,8 @@ define_custom_sections! {
     ExternalDebugInfo(String) = "external_debug_info",
     // https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
     SourceMappingUrl(String) = "sourceMappingURL",
+    // https://github.com/WebAssembly/tool-conventions/blob/9b80cd2339c648822bb845a083d9ffa6e20fb1ee/BuildId.md
+    BuildId(Vec<u8>) = "build_id",
 }
 
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
