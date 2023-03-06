@@ -119,6 +119,7 @@ pub struct RawCustomSection {
 macro_rules! define_custom_sections {
     ($($name:ident($ty:ty) = $disc:literal,)*) => {
         #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+        #[non_exhaustive]
         pub enum CustomSection {
             $($name(Lazy<$ty>),)*
             Other(RawCustomSection),
@@ -340,7 +341,7 @@ macro_rules! define_sections {
             $($(# $attr)? pub type $name = $ty;)*
         }
 
-                #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+        #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
         #[repr(u8)]
         pub enum Section {
             $($(# $attr)? $name(Blob<payload::$name>) = $disc,)*
