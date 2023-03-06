@@ -18,13 +18,13 @@ pub use wasmbin_derive::Wasmbin;
 
 #[derive(Error, Debug)]
 pub enum DecodeErrorKind {
-    #[error("{0}")]
+    #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error("{0}")]
+    #[error(transparent)]
     Leb128(#[from] leb128::read::Error),
 
-    #[error("{0}")]
+    #[error(transparent)]
     Utf8(#[from] std::string::FromUtf8Error),
 
     #[error("Could not recognise discriminant 0x{discriminant:X} for type {ty}")]
@@ -39,7 +39,7 @@ pub enum DecodeErrorKind {
     #[error("Unrecognized data")]
     UnrecognizedData,
 
-    #[error("{0}")]
+    #[error(transparent)]
     SectionOutOfOrder(#[from] SectionOrderError),
 }
 
