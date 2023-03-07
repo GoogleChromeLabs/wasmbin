@@ -32,18 +32,28 @@ encode_decode_as!(MagicAndVersion, {
     Err(DecodeErrorKind::InvalidMagic { actual }.into())
 });
 
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
+#[derive(Wasmbin, Debug, PartialEq, Eq)]
 #[repr(transparent)]
 struct ModuleRepr {
     magic_and_version: MagicAndVersion,
     sections: Vec<Section>,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for ModuleRepr {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            magic_and_version: MagicAndVersion,
+            sections: Module::arbitrary(u)?.sections,
+        })
+    }
+}
+
 /// [WebAssembly Module](https://webassembly.github.io/spec/core/binary/modules.html#binary-module).
 ///
 /// Unless you're doing something very specific, this will be your entry point to the library as it
 /// represents the module as a whole. Check out its fields for nested structures.
-#[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Module {
     /// Module [sections](https://webassembly.github.io/spec/core/binary/modules.html#sections).
     ///
@@ -56,6 +66,23 @@ pub struct Module {
     ///
     /// The section order will be checked both during decoding and encoding.
     pub sections: Vec<Section>,
+}
+
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for Module {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        use crate::sections::Kind::Custom;
+
+        let mut sections = <Vec<Section>>::arbitrary(u)?;
+        // Ensure sections are in a valid order.
+        sections.sort_by(|a, b| match (a.kind(), b.kind()) {
+            // Keep custom section wherever.
+            (Custom, _) | (_, Custom) => Ordering::Equal,
+            // Other sections must appear in a specific order.
+            (a, b) => a.cmp(&b),
+        });
+        Ok(Self { sections })
+    }
 }
 
 impl Encode for Module {

@@ -405,6 +405,9 @@ macro_rules! define_sections {
         }
 
         /// A kind of the [`Section`] without the payload.
+        ///
+        /// Note: the `Kind`s are compared not by their discriminants, but by
+        /// the order their sections must appear in a module.
         #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
         #[repr(u8)]
         pub enum Kind {
