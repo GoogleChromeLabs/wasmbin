@@ -22,6 +22,7 @@ use crate::Arbitrary;
 /// about general floating number rules.
 #[derive(Wasmbin, Debug, Arbitrary, Clone, Visit)]
 pub struct FloatConst<F> {
+    /// The float value.
     pub value: F,
 }
 

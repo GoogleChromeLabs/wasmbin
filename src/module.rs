@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![warn(missing_docs)]
+
 use crate::builtins::Blob;
-use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode, Wasmbin};
+use crate::io::{encode_decode_as, Decode, DecodeError, DecodeErrorKind, Encode, Wasmbin};
 use crate::sections::{Section, StdPayload};
 use crate::visit::Visit;
 use crate::Arbitrary;
@@ -37,8 +39,22 @@ struct ModuleRepr {
     sections: Vec<Section>,
 }
 
+/// [WebAssembly Module](https://webassembly.github.io/spec/core/binary/modules.html#binary-module).
+///
+/// Unless you're doing something very specific, this will be your entry point to the library as it
+/// represents the module as a whole. Check out its fields for nested structures.
 #[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Module {
+    /// Module [sections](https://webassembly.github.io/spec/core/binary/modules.html#sections).
+    ///
+    /// Note that the spec mandates a specific order in which sections must appear, but the
+    /// representation here is currently a flat Vec<{enum}> for efficiency.
+    ///
+    /// Use [`Module::find_std_section`] and [`Module::find_std_section_mut`] to find sections
+    /// of the specific type and [`Module::find_or_insert_std_section`] to insert one in the correct
+    /// position.
+    ///
+    /// The section order will be checked both during decoding and encoding.
     pub sections: Vec<Section>,
 }
 
@@ -55,23 +71,78 @@ impl Decode for Module {
 }
 
 impl Module {
+    /// Decode a module from an arbitrary input.
     pub fn decode_from(mut r: impl std::io::Read) -> Result<Module, DecodeError> {
         Self::decode(&mut r)
     }
 
+    /// Encode the module into an arbitrary output.
     pub fn encode_into<W: std::io::Write>(&self, mut w: W) -> std::io::Result<W> {
         self.encode(&mut w)?;
         Ok(w)
     }
 
+    /// Find a standard section by its payload type.
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use wasmbin::{Module, sections::payload};
+    ///
+    /// # let module = Module::default();
+    /// if let Some(imports) = module.find_std_section::<payload::Import>() {
+    ///    for import in imports {
+    ///       println!("Module imports a {:?} from {}.{}", import.desc, import.path.module, import.path.name);
+    ///   }
+    /// }
     pub fn find_std_section<T: StdPayload>(&self) -> Option<&Blob<T>> {
         self.sections.iter().find_map(Section::try_as)
     }
 
+    /// Find a standard section by its payload type and return a mutable reference.
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use wasmbin::Module;
+    /// use wasmbin::sections::{payload, Import, ImportPath, ImportDesc};
+    /// use wasmbin::indices::TypeId;
+    ///
+    /// # let module = Module::default();
+    /// if let Some(imports) = module.find_std_section::<payload::Import>() {
+    ///    for import in imports {
+    ///         // Compress references to the "env" module.
+    ///         if import.path.module == "env" {
+    ///             import.path.module = "a".to_owned();
+    ///        }
+    ///   }
+    /// }
     pub fn find_std_section_mut<T: StdPayload>(&mut self) -> Option<&mut Blob<T>> {
         self.sections.iter_mut().find_map(Section::try_as_mut)
     }
 
+    /// Find a standard section by its payload type or insert it if it's not present.
+    ///
+    /// The section will be inserted in the correct position according to the spec and
+    /// a mutable reference will be returned for further modification.
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use wasmbin::Module;
+    /// use wasmbin::sections::{payload, Import, ImportPath, ImportDesc};
+    /// use wasmbin::indices::TypeId;
+    ///
+    /// # let module = Module::default();
+    /// module
+    /// .find_or_insert_std_section(|| payload::Import::default())
+    /// .push(Import {
+    ///     path: ImportPath {
+    ///         module: "env".to_owned(),
+    ///         name: "my_func".to_owned(),
+    ///     },
+    ///     desc: ImportDesc::Func(TypeId::from(42)),
+    /// });
     pub fn find_or_insert_std_section<T: StdPayload>(
         &mut self,
         insert_callback: impl FnOnce() -> T,

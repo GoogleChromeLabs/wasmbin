@@ -1,3 +1,5 @@
+//! Value traversal traits.
+
 // Copyright 2020 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,17 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![warn(missing_docs)]
+
 use crate::io::{DecodeError, PathItem};
 use std::convert::Infallible;
 use thiserror::Error;
 
-pub use wasmbin_derive::Visit;
+pub(crate) use wasmbin_derive::Visit;
 
+/// Error type for [Visit] traversals.
 #[derive(Error, Debug)]
 pub enum VisitError<E> {
+    /// Decoding error occured while visiting a [`Lazy`](crate::builtins::Lazy) value.
     #[error(transparent)]
     LazyDecode(DecodeError),
 
+    /// A custom error returned from a visitor callback.
     #[error(transparent)]
     Custom(E),
 }
@@ -46,12 +53,20 @@ impl From<VisitError<Infallible>> for DecodeError {
     }
 }
 
-pub trait VisitResult {
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// A trait for results that can be returned from a visitor.
+pub trait VisitResult: sealed::Sealed {
+    /// The error type of the result.
     type Error;
 
+    /// Convert this result into a standard [`Result`].
     fn into_result(self) -> Result<(), Self::Error>;
 }
 
+impl sealed::Sealed for () {}
 impl VisitResult for () {
     type Error = Infallible;
 
@@ -60,6 +75,7 @@ impl VisitResult for () {
     }
 }
 
+impl sealed::Sealed for bool {}
 impl VisitResult for bool {
     type Error = ();
 
@@ -71,6 +87,7 @@ impl VisitResult for bool {
     }
 }
 
+impl<E> sealed::Sealed for Result<(), E> {}
 impl<E> VisitResult for Result<(), E> {
     type Error = E;
 
@@ -79,7 +96,11 @@ impl<E> VisitResult for Result<(), E> {
     }
 }
 
+/// A trait for recursively finding instances of a given type within a value.
+///
+/// This is particularly useful for finding and updating [indices](crate::indices).
 pub trait Visit: 'static + Sized {
+    /// Traverse this value with the provided callback.
     fn visit<'a, T: 'static, R: VisitResult, F: FnMut(&'a T) -> R>(
         &'a self,
         mut f: F,
@@ -87,6 +108,7 @@ pub trait Visit: 'static + Sized {
         self.visit_child(&mut move |item| f(item).into_result())
     }
 
+    /// Traverse this value mutably with the provided callback.
     fn visit_mut<T: 'static, R: VisitResult, F: FnMut(&mut T) -> R>(
         &mut self,
         mut f: F,
@@ -94,6 +116,11 @@ pub trait Visit: 'static + Sized {
         self.visit_child_mut(&mut move |item| f(item).into_result())
     }
 
+    #[doc(hidden)]
+    /// Internal implementation of [`visit`](Visit::visit).
+    ///
+    /// Takes a mutable reference to the callback to avoid infinite
+    /// generic recursion.
     fn visit_child<'a, T: 'static, E, F: FnMut(&'a T) -> Result<(), E>>(
         &'a self,
         f: &mut F,
@@ -104,6 +131,11 @@ pub trait Visit: 'static + Sized {
         self.visit_children(f)
     }
 
+    #[doc(hidden)]
+    /// Internal implementation of [`visit_mut`](Visit::visit_mut).
+    ///
+    /// Takes a mutable reference to the callback to avoid infinite
+    /// generic recursion.
     fn visit_child_mut<T: 'static, E, F: FnMut(&mut T) -> Result<(), E>>(
         &mut self,
         f: &mut F,
@@ -114,6 +146,7 @@ pub trait Visit: 'static + Sized {
         self.visit_children_mut(f)
     }
 
+    /// Traverse the children of this value with the provided callback.
     fn visit_children<'a, T: 'static, E, F: FnMut(&'a T) -> Result<(), E>>(
         &'a self,
         _f: &mut F,
@@ -121,6 +154,7 @@ pub trait Visit: 'static + Sized {
         Ok(())
     }
 
+    /// Traverse the children of this value mutably with the provided callback.
     fn visit_children_mut<T: 'static, E, F: FnMut(&mut T) -> Result<(), E>>(
         &mut self,
         _f: &mut F,

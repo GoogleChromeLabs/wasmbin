@@ -27,16 +27,13 @@ use arbitrary::Arbitrary;
 #[cfg(not(feature = "arbitrary"))]
 use wasmbin_derive::Noop as Arbitrary;
 
-#[macro_use]
-pub mod io;
-#[macro_use]
-pub mod visit;
-
 pub mod builtins;
 pub mod indices;
 pub mod instructions;
-pub mod module;
+pub mod io;
+mod module;
 pub mod sections;
 pub mod types;
+pub mod visit;
 
 pub use module::Module;

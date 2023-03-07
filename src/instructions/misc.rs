@@ -17,6 +17,7 @@ use crate::io::Wasmbin;
 use crate::visit::Visit;
 use crate::Arbitrary;
 
+/// Miscellaneous post-MVP instructions.
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u32)]
 pub enum Misc {

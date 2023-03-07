@@ -1,3 +1,5 @@
+//! WebAssembly [instruction set](https://webassembly.github.io/exception-handling/core/binary/instructions.html).
+
 // Copyright 2020 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -124,6 +126,14 @@ pub struct CallIndirect {
     table: TableId,
 }
 
+/// WebAssembly [instruction set](https://webassembly.github.io/spec/core/binary/instructions.html).
+///
+/// In most cases, these will map 1:1 to the instructions in the spec, but an exception is made for
+/// structured control flow instructions (`block`, `loop` and `if`). Representing those as nested
+/// blocks would be ideal semantically, but is very expensive and tends to blow up the stack for even
+/// moderately-sized modules. Instead, we follow the other WebAssembly parsers and represent them as
+/// a start (`BlockStart`, `LoopStart` or `IfStart`) instruction followed by the contents of the block,
+/// and an `End` instruction - all in the same flat instruction list.
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Instruction {

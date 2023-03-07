@@ -1,3 +1,5 @@
+//! Encoding / decoding traits.
+
 // Copyright 2020 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,33 +14,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![warn(missing_docs)]
+
 use crate::sections::SectionOrderError;
 use thiserror::Error;
 pub use wasmbin_derive::Wasmbin;
 
+/// [Decode] error kind.
 #[derive(Error, Debug)]
 pub enum DecodeErrorKind {
+    /// Reading error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
+    /// LEB128 decoding error.
     #[error(transparent)]
     Leb128(#[from] leb128::read::Error),
 
+    /// UTF-8 decoding error.
     #[error(transparent)]
     Utf8(#[from] std::string::FromUtf8Error),
 
+    /// Unsupported (unknown) enum or struct discriminant.
     #[error("Could not recognise discriminant 0x{discriminant:X} for type {ty}")]
     UnsupportedDiscriminant {
+        /// The fully-qualified type name.
         ty: &'static str,
+        /// Encountered discriminant.
         discriminant: i128,
     },
 
+    /// Invalid module magic signature.
     #[error("Invalid module magic signature [{actual:02X?}]")]
-    InvalidMagic { actual: [u8; 8] },
+    InvalidMagic {
+        /// The actual byte sequence encountered instead of the expected magic signature.
+        actual: [u8; 8],
+    },
 
+    /// Unrecognized data at the end of a stream or a [`Blob`](crate::builtins::Blob).
     #[error("Unrecognized data")]
     UnrecognizedData,
 
+    /// Encountered section in the wrong position among others.
     #[error(transparent)]
     SectionOutOfOrder(#[from] SectionOrderError),
 }
@@ -50,9 +67,12 @@ pub(crate) enum PathItem {
     Variant(&'static str),
 }
 
+/// Decoding error with attached property path.
 #[derive(Error, Debug)]
 pub struct DecodeError {
     path: Vec<PathItem>,
+
+    /// The kind of error that occurred.
     #[source]
     pub kind: DecodeErrorKind,
 }
@@ -109,11 +129,15 @@ impl From<std::convert::Infallible> for DecodeErrorKind {
     }
 }
 
+/// A trait for types that can be encoded into a binary stream.
 pub trait Encode {
+    /// Encodes the value into the given writer.
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()>;
 }
 
+/// A trait for types that can be decoded from a binary stream.
 pub trait Decode: Sized {
+    /// Decodes the value from the given reader.
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
 }
 
@@ -141,15 +165,27 @@ macro_rules! encode_decode_as {
         }
     };
 }
+pub(crate) use encode_decode_as;
 
+/// A [`Decode`] sub-trait for types that have a discriminant (usually enums).
 pub trait DecodeWithDiscriminant: Decode {
+    /// The discriminant representation.
     type Discriminant: Decode + Copy + Into<i128>;
 
+    /// Decodes the value from the given reader, if the discriminant matches.
+    ///
+    /// Returns `Ok(None)` if the discriminant does not match.
+    ///
+    /// This allows to try decoding multiple types with the same discriminant
+    /// without advancing the reader position.
     fn maybe_decode_with_discriminant(
         discriminant: Self::Discriminant,
         r: &mut impl std::io::Read,
     ) -> Result<Option<Self>, DecodeError>;
 
+    /// Decodes the value from the given reader, if the discriminant matches.
+    ///
+    /// Returns an error if the discriminant does not match.
     fn decode_with_discriminant(
         discriminant: Self::Discriminant,
         r: &mut impl std::io::Read,
@@ -158,6 +194,9 @@ pub trait DecodeWithDiscriminant: Decode {
             .ok_or_else(|| DecodeError::unsupported_discriminant::<Self>(discriminant))
     }
 
+    /// Decodes this value fully, including the discriminant.
+    ///
+    /// This method is intended to be used as an implementation for [`Decode::decode`].
     fn decode_without_discriminant(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         Self::decode_with_discriminant(Self::Discriminant::decode(r)?, r)
     }

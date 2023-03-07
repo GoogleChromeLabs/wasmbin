@@ -1,3 +1,5 @@
+//! [Module sections](https://webassembly.github.io/spec/core/binary/modules.html#sections).
+
 // Copyright 2020 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -117,15 +119,29 @@ pub struct RawCustomSection {
 }
 
 macro_rules! define_custom_sections {
-    ($($name:ident($ty:ty) = $disc:literal,)*) => {
+    ($(#[doc = $url:literal] $name:ident($ty:ty) = $disc:literal,)*) => {
+        /// A [custom section](https://webassembly.github.io/spec/core/binary/modules.html#custom-section).
+        ///
+        /// This enum supports some non-standard custom sections commonly used in tooling, but is marked
+        /// as non-exhaustive to allow for future additions that would transform some sections
+        /// currently represented by the [`Other`](CustomSection::Other) variant into new variants.
         #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
         #[non_exhaustive]
         pub enum CustomSection {
-            $($name(Lazy<$ty>),)*
+            $(
+                #[doc = "[`"]
+                #[doc = $disc]
+                #[doc = "`]("]
+                #[doc = $url]
+                #[doc = ") custom section."]
+                $name(Lazy<$ty>),
+            )*
+            /// A custom section that is not recognized by this library.
             Other(RawCustomSection),
         }
 
         impl CustomSection {
+            /// Name of this custom section.
             pub fn name(&self) -> &str {
                 match self {
                     $(Self::$name(_) => $disc,)*
@@ -185,13 +201,15 @@ macro_rules! define_custom_sections {
 }
 
 define_custom_sections! {
+    /// https://webassembly.github.io/spec/core/appendix/custom.html#name-section
     Name(Vec<NameSubSection>) = "name",
+    /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed7d0daff49808370cd93b6a6f0c962d76/ProducersSection.md
     Producers(Vec<ProducerField>) = "producers",
-    // https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#external-dwarf
+    /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#external-dwarf
     ExternalDebugInfo(String) = "external_debug_info",
-    // https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
+    /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
     SourceMappingUrl(String) = "sourceMappingURL",
-    // https://github.com/WebAssembly/tool-conventions/blob/9b80cd2339c648822bb845a083d9ffa6e20fb1ee/BuildId.md
+    /// https://github.com/WebAssembly/tool-conventions/blob/9b80cd2339c648822bb845a083d9ffa6e20fb1ee/BuildId.md
     BuildId(Vec<u8>) = "build_id",
 }
 
@@ -325,6 +343,7 @@ pub struct Data {
     pub blob: RawBlob,
 }
 
+/// A section payload.
 pub trait Payload: Encode + Decode + Into<Section> {
     const KIND: Kind;
 
@@ -333,32 +352,37 @@ pub trait Payload: Encode + Decode + Into<Section> {
     fn try_from(section: Section) -> Result<Blob<Self>, Section>;
 }
 
+/// A common trait for the [standard payloads](payload).
 pub trait StdPayload: Payload {}
 
 macro_rules! define_sections {
-    ($($(# $attr:tt)? $name:ident($ty:ty) = $disc:literal,)*) => {
+    ($($(# $attr:tt)* $name:ident($(# $ty_attr:tt)* $ty:ty) = $disc:literal,)*) => {
+        /// Payload types of the [`Section`] variants.
         pub mod payload {
-            $($(# $attr)? pub type $name = $ty;)*
+            $($(# $attr)* pub type $name = $ty;)*
         }
 
+        /// [Module section](https://webassembly.github.io/spec/core/binary/modules.html#sections).
         #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
         #[repr(u8)]
         pub enum Section {
-            $($(# $attr)? $name(Blob<payload::$name>) = $disc,)*
+            $($(# $attr)* $name($(# $ty_attr)* Blob<payload::$name>) = $disc,)*
         }
 
+        /// A kind of the [`Section`] without the payload.
         #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
         #[repr(u8)]
         pub enum Kind {
-            $($(# $attr)? $name = $disc,)*
+            $($(# $attr)* $name = $disc,)*
         }
 
         impl TryFrom<u8> for Kind {
             type Error = u8;
 
             fn try_from(discriminant: u8) -> Result<Kind, u8> {
+                #[allow(unused_doc_comments)]
                 Ok(match discriminant {
-                    $($(# $attr)? $disc => Kind::$name,)*
+                    $($(# $attr)* $disc => Kind::$name,)*
                     _ => return Err(discriminant),
                 })
             }
@@ -375,13 +399,14 @@ macro_rules! define_sections {
                 #[derive(PartialEq, Eq, PartialOrd, Ord)]
                 #[repr(u8)]
                 enum OrderedRepr {
-                    $($(# $attr)? $name,)*
+                    $($(# $attr)* $name,)*
                 }
 
                 impl From<Kind> for OrderedRepr {
                     fn from(kind: Kind) -> Self {
+                        #[allow(unused_doc_comments)]
                         match kind {
-                            $($(# $attr)? Kind::$name => Self::$name,)*
+                            $($(# $attr)* Kind::$name => Self::$name,)*
                         }
                     }
                 }
@@ -396,7 +421,7 @@ macro_rules! define_sections {
             }
         }
 
-        $($(# $attr)? const _: () = {
+        $($(# $attr)* const _: () = {
             impl From<Blob<payload::$name>> for Section {
                 fn from(value: Blob<payload::$name>) -> Self {
                     Section::$name(value)
@@ -436,44 +461,68 @@ macro_rules! define_sections {
         };)*
 
         impl Section {
+            /// Get the kind of the section without its payload.
             pub fn kind(&self) -> Kind {
+                #[allow(unused_doc_comments)]
                 match self {
-                    $($(# $attr)? Section::$name(_) => Kind::$name,)*
+                    $($(# $attr)* Section::$name(_) => Kind::$name,)*
                 }
             }
 
+            /// Try to interpret the section as a specific payload.
             pub fn try_as<T: Payload>(&self) -> Option<&Blob<T>> {
                 T::try_from_ref(self)
             }
 
+            /// Try to interpret the section as a specific payload mutably.
             pub fn try_as_mut<T: Payload>(&mut self) -> Option<&mut Blob<T>> {
                 T::try_from_mut(self)
             }
         }
 
-        define_sections!(@std $($(# $attr)? $name)*);
+        define_sections!(@std $($(# $attr)* $name)*);
     };
 
-    (@std $ignore_custom:ident $($(# $attr:tt)? $name:ident)*) => {
-        $($(# $attr)? impl StdPayload for payload::$name {})*
+    (@std $(# $ignore_custom_attr:tt)* $ignore_custom:ident $($(# $attr:tt)* $name:ident)*) => {
+        $($(# $attr)* impl StdPayload for payload::$name {})*
     };
 }
 
 define_sections! {
+    /// [Custom section](https://webassembly.github.io/spec/core/binary/modules.html#custom-section).
     Custom(super::CustomSection) = 0,
+    /// [Type section](https://webassembly.github.io/spec/core/binary/modules.html#type-section).
     Type(Vec<super::FuncType>) = 1,
+    /// [Import section](https://webassembly.github.io/spec/core/binary/modules.html#import-section).
     Import(Vec<super::Import>) = 2,
+    /// [Function section](https://webassembly.github.io/spec/core/binary/modules.html#function-section).
     Function(Vec<super::TypeId>) = 3,
+    /// [Table section](https://webassembly.github.io/spec/core/binary/modules.html#table-section).
     Table(Vec<super::TableType>) = 4,
+    /// [Memory section](https://webassembly.github.io/spec/core/binary/modules.html#memory-section).
     Memory(Vec<super::MemType>) = 5,
     #[cfg(feature = "exception-handling")]
+    /// [Exception tag section](https://webassembly.github.io/exception-handling/core/binary/modules.html#tag-section).
     Exception(Vec<super::Exception>) = 13,
+    /// [Global section](https://webassembly.github.io/spec/core/binary/modules.html#global-section).
     Global(Vec<super::Global>) = 6,
+    /// [Export section](https://webassembly.github.io/spec/core/binary/modules.html#export-section).
     Export(Vec<super::Export>) = 7,
-    Start(super::FuncId) = 8,
+    /// [Start section](https://webassembly.github.io/spec/core/binary/modules.html#start-section).
+    Start(
+        /// [Start function](https://webassembly.github.io/spec/core/syntax/modules.html#syntax-start).
+        super::FuncId
+    ) = 8,
+    /// [Element section](https://webassembly.github.io/spec/core/binary/modules.html#element-section).
     Element(Vec<super::Element>) = 9,
-    DataCount(u32) = 12,
+    /// [Data count section](https://webassembly.github.io/spec/core/binary/modules.html#binary-datacountsec).
+    DataCount(
+        /// Number of data segments in the [`Data`](Section::Data) section.
+        u32
+    ) = 12,
+    /// [Code section](https://webassembly.github.io/spec/core/binary/modules.html#code-section).
     Code(Vec<super::Blob<super::FuncBody>>) = 10,
+    /// [Data section](https://webassembly.github.io/spec/core/binary/modules.html#data-section).
     Data(Vec<super::Data>) = 11,
 }
 

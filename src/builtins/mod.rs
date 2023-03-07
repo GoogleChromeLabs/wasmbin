@@ -1,3 +1,5 @@
+//! Built-in wrapper types for encoding / decoding.
+
 // Copyright 2020 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![warn(missing_docs)]
+
 mod blob;
 mod boolean;
 mod collections;
@@ -20,7 +24,8 @@ mod integers;
 mod lazy;
 mod strings;
 
+pub(crate) use collections::WasmbinCountable;
+
 pub use blob::{Blob, RawBlob};
-pub use collections::WasmbinCountable;
 pub use floats::FloatConst;
 pub use lazy::Lazy;

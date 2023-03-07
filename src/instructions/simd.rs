@@ -96,6 +96,7 @@ impl<const MAX: u8, const N: usize> Decode for [LaneId<MAX>; N] {
     }
 }
 
+/// [SIMD (vector) instructions](https://webassembly.github.io/spec/core/binary/instructions.html#vector-instructions).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u32)]
 pub enum SIMD {

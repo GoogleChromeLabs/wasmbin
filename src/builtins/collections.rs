@@ -15,8 +15,10 @@
 use crate::io::{Decode, DecodeError, Encode, PathItem};
 use crate::visit::Visit;
 
-pub use wasmbin_derive::WasmbinCountable;
-pub trait WasmbinCountable {}
+pub(crate) use wasmbin_derive::WasmbinCountable;
+
+/// A trait for types that should be count-prefixed when encoded as a list.
+pub(crate) trait WasmbinCountable {}
 
 impl<T: WasmbinCountable + Encode> Encode for [T] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {

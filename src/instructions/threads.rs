@@ -53,6 +53,7 @@ pub type MemArg16 = AlignedMemArg<1>;
 pub type MemArg32 = AlignedMemArg<2>;
 pub type MemArg64 = AlignedMemArg<3>;
 
+/// [Atomic memory instructions](https://webassembly.github.io/threads/core/binary/instructions.html#atomic-memory-instructions).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Atomic {

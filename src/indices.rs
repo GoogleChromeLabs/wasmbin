@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Newtypes for [indices](https://webassembly.github.io/exception-handling/core/binary/modules.html#indices).
+
 use crate::builtins::WasmbinCountable;
 use crate::io::Wasmbin;
 use crate::visit::Visit;

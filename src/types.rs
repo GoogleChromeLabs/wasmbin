@@ -1,3 +1,5 @@
+//! [Specification types](https://webassembly.github.io/spec/core/binary/types.html).
+
 // Copyright 2020 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +16,9 @@
 
 use crate::builtins::WasmbinCountable;
 use crate::indices::TypeId;
-use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
+use crate::io::{
+    encode_decode_as, Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin,
+};
 use crate::visit::Visit;
 use crate::Arbitrary;
 use std::convert::TryFrom;
@@ -22,22 +26,32 @@ use std::fmt::{self, Debug, Formatter};
 
 const OP_CODE_EMPTY_BLOCK: u8 = 0x40;
 
+/// [Value type](https://webassembly.github.io/spec/core/binary/types.html#value-types).
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ValueType {
+    /// [SIMD vector type](https://webassembly.github.io/spec/core/binary/types.html#vector-types).
     V128 = 0x7B,
     F64 = 0x7C,
     F32 = 0x7D,
     I64 = 0x7E,
     I32 = 0x7F,
+    /// [Reference type](https://webassembly.github.io/spec/core/binary/types.html#reference-types).
     Ref(RefType),
 }
 
+/// [Block type](https://webassembly.github.io/spec/core/binary/instructions.html#control-instructions).
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum BlockType {
+    /// Block without a return value.
     Empty,
+    /// Block with a single return value.
     Value(ValueType),
+    /// Block returning multiple values.
+    ///
+    /// The actual list of value types is stored as a function signature in the type section
+    /// and referenced here by its ID.
     MultiValue(TypeId),
 }
 
@@ -81,6 +95,7 @@ impl Decode for BlockType {
     }
 }
 
+/// [Function type](https://webassembly.github.io/spec/core/binary/types.html#function-types).
 #[derive(Wasmbin, WasmbinCountable, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[wasmbin(discriminant = 0x60)]
 pub struct FuncType {
@@ -107,6 +122,7 @@ impl Debug for FuncType {
     }
 }
 
+/// [Limits](https://webassembly.github.io/spec/core/binary/types.html#limits) type.
 #[derive(Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Limits {
     pub min: u32,
@@ -144,6 +160,7 @@ enum MemTypeRepr {
     SharedMinMax { min: u32, max: u32 } = 0x03,
 }
 
+/// [Memory type](https://webassembly.github.io/spec/core/binary/types.html#memory-types).
 #[cfg_attr(not(feature = "threads"), derive(Wasmbin))]
 #[derive(WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MemType {
@@ -160,6 +177,7 @@ encode_decode_as!(MemType, {
     (MemType { is_shared: true, limits: Limits { min, max: Some(max) } }) <=> (MemTypeRepr::SharedMinMax { min, max }),
 });
 
+/// [Reference type](https://webassembly.github.io/spec/core/binary/types.html#reference-types).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum RefType {
@@ -167,18 +185,21 @@ pub enum RefType {
     Extern = 0x6F,
 }
 
+/// [Table type](https://webassembly.github.io/spec/core/binary/types.html#table-types).
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct TableType {
     pub elem_type: RefType,
     pub limits: Limits,
 }
 
+/// [Global type](https://webassembly.github.io/spec/core/binary/types.html#global-types).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct GlobalType {
     pub value_type: ValueType,
     pub mutable: bool,
 }
 
+/// [Exception tag type](https://webassembly.github.io/exception-handling/core/binary/types.html#tag-types).
 #[cfg(feature = "exception-handling")]
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[wasmbin(discriminant = 0x00)]

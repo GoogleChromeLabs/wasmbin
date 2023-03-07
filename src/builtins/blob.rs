@@ -17,9 +17,37 @@ use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 use crate::Arbitrary;
 
-#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+/// A length-prefixed blob of bytes.
+#[derive(Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawBlob<T = Vec<u8>> {
+    #[allow(missing_docs)]
     pub contents: T,
+}
+
+impl<T> std::ops::Deref for RawBlob<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.contents
+    }
+}
+
+impl<T> std::ops::DerefMut for RawBlob<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.contents
+    }
+}
+
+impl<T: AsRef<[u8]>> AsRef<[u8]> for RawBlob<T> {
+    fn as_ref(&self) -> &[u8] {
+        self.contents.as_ref()
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for RawBlob<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.contents.fmt(f)
+    }
 }
 
 impl<T: AsRef<[u8]>> Encode for RawBlob<T> {
@@ -42,28 +70,24 @@ impl<T: Decode> Decode for RawBlob<T> {
     }
 }
 
-impl<T: AsRef<[u8]>> AsRef<[u8]> for RawBlob<T> {
-    fn as_ref(&self) -> &[u8] {
-        self.contents.as_ref()
-    }
-}
-
+/// A length-prefixed blob that can be skipped over during decoding.
 #[derive(Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Blob<T: Decode> {
-    contents: Lazy<T>,
+    /// Lazily-decoded contents of the blob.
+    pub contents: Lazy<T>,
 }
 
-impl<T: Decode> Blob<T> {
-    pub fn try_contents(&self) -> Result<&T, DecodeError> {
-        self.contents.try_contents()
-    }
+impl<T: Decode> std::ops::Deref for Blob<T> {
+    type Target = Lazy<T>;
 
-    pub fn try_contents_mut(&mut self) -> Result<&mut T, DecodeError> {
-        self.contents.try_contents_mut()
+    fn deref(&self) -> &Self::Target {
+        &self.contents
     }
+}
 
-    pub fn try_into_contents(self) -> Result<T, DecodeError> {
-        self.contents.try_into_contents()
+impl<T: Decode> std::ops::DerefMut for Blob<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.contents
     }
 }
 
