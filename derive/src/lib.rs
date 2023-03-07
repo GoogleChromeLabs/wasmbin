@@ -300,14 +300,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
         #[test]
         #[allow(non_snake_case)]
         fn #test_name() -> anyhow::Result<()> {
-            let arbitrary = <#type_name as arbitrary::Arbitrary>::arbitrary(&mut arbitrary::Unstructured::new(&[]))?;
-            let mut buf = Vec::new();
-            <#type_name as crate::io::Encode>::encode(&arbitrary, &mut buf)?;
-            let mut r = &buf[..];
-            let decoded = <#type_name as crate::io::Decode>::decode(&mut r)?;
-            assert_eq!(arbitrary, decoded);
-            assert_eq!(r.len(), 0);
-            Ok(())
+            crate::test_roundtrip::<#type_name>()
         }
     }
 }
