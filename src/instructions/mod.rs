@@ -43,17 +43,17 @@ struct DepthTracker {
 }
 
 impl DepthTracker {
-    pub fn inc(&mut self) {
+    fn inc(&mut self) {
         self.depth += 1;
     }
 
     // Returns a bool indicating whether to continue, or an error state.
-    pub fn try_dec(&mut self) -> Result<(), DepthError> {
+    fn try_dec(&mut self) -> Result<(), DepthError> {
         self.depth = self.depth.checked_sub(1).ok_or(DepthError)?;
         Ok(())
     }
 
-    pub fn assert_end(self) -> Result<(), DepthError> {
+    fn assert_end(self) -> Result<(), DepthError> {
         match self.depth {
             0 => Ok(()),
             _ => Err(DepthError),
@@ -110,20 +110,23 @@ impl Decode for Vec<Instruction> {
     }
 }
 
+/// [Expression](https://webassembly.github.io/spec/core/binary/instructions.html#expressions), aka a terminated list of [instructions](Instruction).
 pub type Expression = Vec<Instruction>;
 
 impl crate::builtins::WasmbinCountable for Expression {}
 
+/// [Memory immediate argument](https://webassembly.github.io/spec/core/binary/instructions.html#memory-instructions).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
 }
 
+/// An [indirect call](https://webassembly.github.io/spec/core/binary/instructions.html#control-instructions).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct CallIndirect {
-    ty: TypeId,
-    table: TableId,
+    pub ty: TypeId,
+    pub table: TableId,
 }
 
 /// WebAssembly [instruction set](https://webassembly.github.io/spec/core/binary/instructions.html).
