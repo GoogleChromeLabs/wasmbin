@@ -24,6 +24,12 @@ pub struct RawBlob<T = Vec<u8>> {
     pub contents: T,
 }
 
+impl<T> From<T> for RawBlob<T> {
+    fn from(contents: T) -> Self {
+        Self { contents }
+    }
+}
+
 impl<T> std::ops::Deref for RawBlob<T> {
     type Target = T;
 
