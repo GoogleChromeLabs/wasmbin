@@ -33,45 +33,56 @@ use custom_debug::Debug as CustomDebug;
 use std::convert::TryFrom;
 use thiserror::Error;
 
+/// A [name association](https://webassembly.github.io/spec/core/appendix/custom.html#binary-namemap) key-value pair.
+///
+/// Might also be used to represent an [indirect name association](https://webassembly.github.io/spec/core/appendix/custom.html#binary-indirectnamemap).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct ModuleNameSubSection {
-    pub name: String,
-}
-
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
-pub struct NameAssoc<I, V> {
+pub struct NameAssoc<I, V = String> {
     pub index: I,
     pub value: V,
 }
 
 impl<I, V> WasmbinCountable for NameAssoc<I, V> {}
 
+/// [Name map](https://webassembly.github.io/spec/core/appendix/custom.html#binary-namemap).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct NameMap<I, V = String> {
     pub items: Vec<NameAssoc<I, V>>,
 }
 
+/// [Indirect name map](https://webassembly.github.io/spec/core/appendix/custom.html#binary-indirectnamemap).
 pub type IndirectNameMap<I1, I2> = NameMap<I1, NameMap<I2>>;
 
+/// [Name subsection](https://webassembly.github.io/spec/core/appendix/custom.html#subsections).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum NameSubSection {
+    /// [Module name](https://webassembly.github.io/spec/core/appendix/custom.html#module-names).
     Module(Blob<String>) = 0,
+    /// [Function names](https://webassembly.github.io/spec/core/appendix/custom.html#function-names).
     Func(Blob<NameMap<FuncId>>) = 1,
+    /// [Local names](https://webassembly.github.io/spec/core/appendix/custom.html#local-names) grouped by function index.
     Local(Blob<IndirectNameMap<FuncId, LocalId>>) = 2,
     #[cfg(feature = "extended-name-section")]
+    /// [Label names](https://www.scheidecker.net/2019-07-08-extended-name-section-spec/appendix/custom.html#label-names) grouped by function index.
     Label(Blob<IndirectNameMap<FuncId, LabelId>>) = 3,
     #[cfg(feature = "extended-name-section")]
+    /// [Type names](https://www.scheidecker.net/2019-07-08-extended-name-section-spec/appendix/custom.html#type-names).
     Type(Blob<NameMap<TypeId>>) = 4,
     #[cfg(feature = "extended-name-section")]
+    /// [Table names](https://www.scheidecker.net/2019-07-08-extended-name-section-spec/appendix/custom.html#table-names).
     Table(Blob<NameMap<TableId>>) = 5,
     #[cfg(feature = "extended-name-section")]
+    /// [Memory names](https://www.scheidecker.net/2019-07-08-extended-name-section-spec/appendix/custom.html#memory-names).
     Memory(Blob<NameMap<MemId>>) = 6,
     #[cfg(feature = "extended-name-section")]
+    /// [Global names](https://www.scheidecker.net/2019-07-08-extended-name-section-spec/appendix/custom.html#global-names).
     Global(Blob<NameMap<GlobalId>>) = 7,
     #[cfg(feature = "extended-name-section")]
+    /// Element segment names.
     Elem(Blob<NameMap<ElemId>>) = 8,
     #[cfg(feature = "extended-name-section")]
+    /// Data segment names.
     Data(Blob<NameMap<DataId>>) = 9,
 }
 
@@ -98,18 +109,23 @@ impl Decode for Vec<NameSubSection> {
     }
 }
 
+/// [`producer`](https://github.com/WebAssembly/tool-conventions/blob/08bacbed7d0daff49808370cd93b6a6f0c962d76/ProducersSection.md#custom-section) field.
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ProducerField {
     pub name: String,
     pub values: Vec<ProducerVersionedName>,
 }
 
+/// [`producer`](https://github.com/WebAssembly/tool-conventions/blob/08bacbed7d0daff49808370cd93b6a6f0c962d76/ProducersSection.md#custom-section) `versioned-name` structure.
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ProducerVersionedName {
     pub name: String,
     pub version: String,
 }
 
+/// A raw [custom section](https://webassembly.github.io/spec/core/binary/modules.html#custom-section).
+///
+/// Used to represent custom sections with unknown semantics.
 #[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawCustomSection {
     pub name: String,
@@ -213,6 +229,7 @@ define_custom_sections! {
     BuildId(Vec<u8>) = "build_id",
 }
 
+/// [Import descriptor](https://webassembly.github.io/spec/core/binary/modules.html#binary-importdesc).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ImportDesc {
@@ -224,24 +241,28 @@ pub enum ImportDesc {
     Exception(ExceptionType) = 0x04,
 }
 
+/// [Import](https://webassembly.github.io/spec/core/binary/modules.html#import-section) path.
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ImportPath {
     pub module: String,
     pub name: String,
 }
 
+/// A single [import](https://webassembly.github.io/spec/core/binary/modules.html#binary-import).
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Import {
     pub path: ImportPath,
     pub desc: ImportDesc,
 }
 
+/// A single [global](https://webassembly.github.io/spec/core/binary/modules.html#binary-global).
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Global {
     pub ty: GlobalType,
     pub init: Expression,
 }
 
+/// [Export descriptor](https://webassembly.github.io/spec/core/binary/modules.html#binary-exportdesc).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ExportDesc {
@@ -253,18 +274,21 @@ pub enum ExportDesc {
     Exception(ExceptionId) = 0x04,
 }
 
+/// A single [export](https://webassembly.github.io/spec/core/binary/modules.html#binary-export).
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Export {
     pub name: String,
     pub desc: ExportDesc,
 }
 
+/// [Element kind](https://webassembly.github.io/spec/core/binary/modules.html#binary-elemkind).
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ElemKind {
     FuncRef = 0x00,
 }
 
+/// A single [element](https://webassembly.github.io/spec/core/binary/modules.html#binary-elem).
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Element {
@@ -306,13 +330,14 @@ pub enum Element {
     } = 0x07,
 }
 
+/// Number of repeated consecutive [locals](https://webassembly.github.io/spec/core/binary/modules.html#binary-local) of a single type.
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Locals {
     pub repeat: u32,
     pub ty: ValueType,
 }
 
-// https://webassembly.github.io/exception-handling/core/binary/modules.html#exception-section
+/// [Exception tag](https://webassembly.github.io/exception-handling/core/binary/modules.html#exception-section).
 #[cfg(feature = "exception-handling")]
 #[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[wasmbin(discriminant = 0x00)]
@@ -320,6 +345,7 @@ pub struct Exception {
     pub ty: TypeId,
 }
 
+/// [Function body](https://webassembly.github.io/spec/core/binary/modules.html#binary-func).
 #[derive(
     Wasmbin, WasmbinCountable, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit,
 )]
@@ -328,6 +354,7 @@ pub struct FuncBody {
     pub expr: Expression,
 }
 
+/// [`Data`] segment initialization.
 #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum DataInit {
@@ -336,6 +363,7 @@ pub enum DataInit {
     ActiveWithMemory { memory: MemId, offset: Expression } = 0x02,
 }
 
+/// [Data segment](https://webassembly.github.io/spec/core/binary/modules.html#binary-data).
 #[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Data {
     pub init: DataInit,
@@ -343,16 +371,20 @@ pub struct Data {
     pub blob: RawBlob,
 }
 
-/// A section payload.
-pub trait Payload: Encode + Decode + Into<Section> {
-    const KIND: Kind;
+mod sealed {
+    use super::{Blob, Decode, Encode, Kind, Section};
 
-    fn try_from_ref(section: &Section) -> Option<&Blob<Self>>;
-    fn try_from_mut(section: &mut Section) -> Option<&mut Blob<Self>>;
-    fn try_from(section: Section) -> Result<Blob<Self>, Section>;
+    pub trait Payload: Encode + Decode + Into<Section> {
+        const KIND: Kind;
+
+        fn try_from_ref(section: &Section) -> Option<&Blob<Self>>;
+        fn try_from_mut(section: &mut Section) -> Option<&mut Blob<Self>>;
+        fn try_from(section: Section) -> Result<Blob<Self>, Section>;
+    }
 }
+use sealed::Payload;
 
-/// A common trait for the [standard payloads](payload).
+/// A common marker trait for the [standard payloads](payload).
 pub trait StdPayload: Payload {}
 
 macro_rules! define_sections {
@@ -526,6 +558,7 @@ define_sections! {
     Data(Vec<super::Data>) = 11,
 }
 
+/// Error returned when a section is out of order.
 #[derive(Debug, Error)]
 #[error("Section out of order: {current:?} after {prev:?}")]
 pub struct SectionOrderError {
@@ -552,7 +585,7 @@ impl Default for SectionOrderTracker {
 }
 
 impl SectionOrderTracker {
-    pub fn try_add(&mut self, section: &Section) -> Result<(), SectionOrderError> {
+    fn try_add(&mut self, section: &Section) -> Result<(), SectionOrderError> {
         match section.kind() {
             Kind::Custom => {}
             kind if kind > self.last_kind => {
