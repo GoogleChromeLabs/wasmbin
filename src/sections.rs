@@ -226,7 +226,7 @@ define_custom_sections! {
     /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
     SourceMappingUrl(String) = "sourceMappingURL",
     /// https://github.com/WebAssembly/tool-conventions/blob/9b80cd2339c648822bb845a083d9ffa6e20fb1ee/BuildId.md
-    BuildId(Vec<u8>) = "build_id",
+    BuildId(RawBlob) = "build_id",
 }
 
 /// [Import descriptor](https://webassembly.github.io/spec/core/binary/modules.html#binary-importdesc).
