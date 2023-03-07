@@ -176,21 +176,6 @@ impl<T: Decode + Hash> Hash for Lazy<T> {
     }
 }
 
-#[cfg(feature = "arbitrary")]
-impl<'a, T: arbitrary::Arbitrary<'a>> arbitrary::Arbitrary<'a> for Lazy<T> {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        T::arbitrary(u).map(Self::from)
-    }
-
-    fn arbitrary_take_rest(u: arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        T::arbitrary_take_rest(u).map(Self::from)
-    }
-
-    fn size_hint(depth: usize) -> (usize, Option<usize>) {
-        T::size_hint(depth)
-    }
-}
-
 impl<T: WasmbinCountable> WasmbinCountable for Lazy<T> {}
 
 impl<T: Decode + Visit> Visit for Lazy<T> {

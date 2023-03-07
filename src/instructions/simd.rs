@@ -64,14 +64,6 @@ impl<const MAX: u8> Decode for LaneId<MAX> {
     }
 }
 
-#[cfg(feature = "arbitrary")]
-impl<'a, const MAX: u8> Arbitrary<'a> for LaneId<MAX> {
-    #[allow(clippy::range_minus_one)]
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        u.int_in_range(0..=(MAX - 1)).map(Self)
-    }
-}
-
 pub type LaneId2 = LaneId<2>;
 pub type LaneId4 = LaneId<4>;
 pub type LaneId8 = LaneId<8>;
