@@ -39,15 +39,6 @@ where
     }
 }
 
-impl<T, const N: usize> Encode for [T; N]
-where
-    [T]: Encode,
-{
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        self.as_slice().encode(w)
-    }
-}
-
 impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let count = usize::decode(r)?;

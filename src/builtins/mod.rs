@@ -26,6 +26,6 @@ mod strings;
 
 pub(crate) use collections::WasmbinCountable;
 
-pub use blob::{Blob, RawBlob};
+pub use blob::Blob;
 pub use floats::FloatConst;
-pub use lazy::Lazy;
+pub use lazy::{Lazy, UnparsedBytes};

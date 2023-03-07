@@ -16,6 +16,12 @@ use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 use std::convert::TryFrom;
 
+impl<const N: usize> Encode for [u8; N] {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        w.write_all(self)
+    }
+}
+
 impl<const N: usize> Decode for [u8; N] {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let mut dest = [0_u8; N];
@@ -26,21 +32,13 @@ impl<const N: usize> Decode for [u8; N] {
 
 impl Encode for u8 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        std::slice::from_ref(self).encode(w)
-    }
-}
-
-impl Encode for [u8] {
-    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        w.write_all(self)
+        [*self].encode(w)
     }
 }
 
 impl Decode for u8 {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut dest = 0;
-        r.read_exact(std::slice::from_mut(&mut dest))?;
-        Ok(dest)
+        <[u8; 1]>::decode(r).map(|[x]| x)
     }
 }
 
@@ -55,14 +53,6 @@ impl Decode for Option<u8> {
                 Err(err) => Err(DecodeErrorKind::Io(err).into()),
             };
         }
-    }
-}
-
-impl Decode for Vec<u8> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut dest = Vec::new();
-        r.read_to_end(&mut dest)?;
-        Ok(dest)
     }
 }
 

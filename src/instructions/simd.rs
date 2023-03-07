@@ -17,6 +17,7 @@ use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
 use std::convert::TryFrom;
 
+/// A SIMD lane index in the `0..MAX` range.
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Visit)]
 #[repr(transparent)]
 pub struct LaneId<const MAX: u8>(u8);
@@ -70,9 +71,13 @@ pub type LaneId8 = LaneId<8>;
 pub type LaneId16 = LaneId<16>;
 pub type LaneId32 = LaneId<32>;
 
-impl<const MAX: u8> Encode for [LaneId<MAX>] {
+impl<const MAX: u8, const N: usize> Encode for [LaneId<MAX>; N] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        unsafe { &*(self as *const [LaneId<MAX>] as *const [u8]) }.encode(w)
+        unsafe {
+            let as_ptr: *const Self = self;
+            &*as_ptr.cast::<[u8; N]>()
+        }
+        .encode(w)
     }
 }
 

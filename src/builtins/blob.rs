@@ -12,66 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::builtins::{Lazy, WasmbinCountable};
+use crate::builtins::{Lazy, UnparsedBytes, WasmbinCountable};
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 
-/// A length-prefixed blob of bytes.
-#[derive(PartialEq, Eq, Hash, Clone, Visit)]
-pub struct RawBlob<T = Vec<u8>> {
-    #[allow(missing_docs)]
-    pub contents: T,
-}
-
-impl<T> From<T> for RawBlob<T> {
-    fn from(contents: T) -> Self {
-        Self { contents }
-    }
-}
-
-impl<T> std::ops::Deref for RawBlob<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.contents
-    }
-}
-
-impl<T> std::ops::DerefMut for RawBlob<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.contents
-    }
-}
-
-impl<T: AsRef<[u8]>> AsRef<[u8]> for RawBlob<T> {
-    fn as_ref(&self) -> &[u8] {
-        self.contents.as_ref()
-    }
-}
-
-impl<T: std::fmt::Debug> std::fmt::Debug for RawBlob<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.contents.fmt(f)
-    }
-}
-
-impl<T: AsRef<[u8]>> Encode for RawBlob<T> {
+impl Encode for [u8] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        let bytes = self.contents.as_ref();
-        bytes.len().encode(w)?;
-        bytes.encode(w)
+        self.len().encode(w)?;
+        w.write_all(self)
     }
 }
 
-impl<T: Decode> Decode for RawBlob<T> {
+impl Decode for Vec<u8> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let size = u32::decode(r)?;
         let mut taken = std::io::Read::take(r, size.into());
-        let contents = T::decode(&mut taken)?;
+        let bytes = UnparsedBytes::decode(&mut taken)?.bytes;
         if taken.limit() != 0 {
             return Err(DecodeErrorKind::UnrecognizedData.into());
         }
-        Ok(RawBlob { contents })
+        Ok(bytes)
     }
 }
 
@@ -104,21 +64,25 @@ impl<T: Decode + std::fmt::Debug> std::fmt::Debug for Blob<T> {
 
 impl<T: Decode + Encode> Encode for Blob<T> {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
-        let value = match self.contents.try_as_raw() {
-            Ok(raw) => return RawBlob { contents: raw }.encode(w),
-            Err(value) => value,
-        };
         let mut buf;
-        buf = Vec::new();
-        value.encode(&mut buf)?;
-        RawBlob { contents: buf }.encode(w)
+        let raw: &[u8] = match self.contents.try_as_raw() {
+            Ok(raw) => raw,
+            Err(value) => {
+                buf = <Vec<u8>>::new();
+                value.encode(&mut buf)?;
+                &buf
+            }
+        };
+        raw.encode(w)
     }
 }
 
 impl<T: Decode> Decode for Blob<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let contents: Lazy<T> = RawBlob::decode(r)?.contents;
-        Ok(Self { contents })
+        let raw = <Vec<u8>>::decode(r)?;
+        Ok(Self {
+            contents: Lazy::from_raw(UnparsedBytes { bytes: raw }),
+        })
     }
 }
 

@@ -19,11 +19,60 @@ use custom_debug::Debug as CustomDebug;
 use once_cell::sync::OnceCell;
 use std::hash::Hash;
 
+/// A storage for unparsed bytes.
+///
+/// Unlike `Vec<u8>`, these raw bytes are not length-prefixed when encoded.
+#[derive(Default, CustomDebug, Clone, PartialEq, Eq, Hash, Visit)]
+#[debug(with = "custom_debug::hexbuf_str")]
+pub struct UnparsedBytes {
+    #[allow(missing_docs)]
+    pub bytes: Vec<u8>,
+}
+
+impl Encode for UnparsedBytes {
+    fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+        w.write_all(&self.bytes)
+    }
+}
+
+impl Decode for UnparsedBytes {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        let mut res = Self::default();
+        r.read_to_end(&mut res.bytes)?;
+        Ok(res)
+    }
+}
+
+impl AsRef<[u8]> for UnparsedBytes {
+    fn as_ref(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
+impl std::ops::Deref for UnparsedBytes {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.bytes
+    }
+}
+
+impl std::ops::DerefMut for UnparsedBytes {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.bytes
+    }
+}
+
+impl From<Vec<u8>> for UnparsedBytes {
+    fn from(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
+}
+
 #[derive(CustomDebug, Clone)]
 enum LazyStatus<T> {
     FromInput {
-        #[debug(with = "custom_debug::hexbuf_str")]
-        raw: Vec<u8>,
+        raw: UnparsedBytes,
         parsed: OnceCell<T>,
     },
     Output {
@@ -49,7 +98,7 @@ pub struct Lazy<T> {
 
 impl<T> Lazy<T> {
     /// Create a new undecoded `Lazy` from a raw byte vector.
-    pub fn from_raw(raw: Vec<u8>) -> Self {
+    pub fn from_raw(raw: UnparsedBytes) -> Self {
         Lazy {
             status: LazyStatus::FromInput {
                 raw,
@@ -59,7 +108,7 @@ impl<T> Lazy<T> {
     }
 
     /// Retrieve the raw bytes if the value has not been modified yet.
-    pub fn try_as_raw(&self) -> Result<&[u8], &T> {
+    pub fn try_as_raw(&self) -> Result<&UnparsedBytes, &T> {
         match &self.status {
             LazyStatus::FromInput { raw, .. } => Ok(raw),
             LazyStatus::Output { value } => Err(value),
@@ -92,7 +141,7 @@ impl<T: Encode> Encode for Lazy<T> {
 
 impl<T: Decode> Decode for Lazy<T> {
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        Vec::decode(r).map(Self::from_raw)
+        UnparsedBytes::decode(r).map(Self::from_raw)
     }
 }
 
@@ -102,7 +151,8 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Lazy<T> {
     }
 }
 
-fn decode_raw<T: Decode>(mut raw: &[u8]) -> Result<T, DecodeError> {
+fn decode_raw<T: Decode>(raw: &UnparsedBytes) -> Result<T, DecodeError> {
+    let mut raw: &[u8] = raw;
     let value = T::decode(&mut raw)?;
     if !raw.is_empty() {
         return Err(DecodeErrorKind::UnrecognizedData.into());
@@ -126,7 +176,7 @@ impl<T: Decode> Lazy<T> {
         if let LazyStatus::FromInput { raw, parsed } = &mut self.status {
             // We can't trust input and output to match once we obtained a mutable reference,
             // so get the value and change the status to just Output.
-            let parsed = std::mem::replace(parsed, OnceCell::new());
+            let parsed = std::mem::take(parsed);
             self.status = LazyStatus::Output {
                 value: match parsed.into_inner() {
                     Some(value) => value,

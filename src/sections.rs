@@ -14,9 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::builtins::Blob;
 use crate::builtins::Lazy;
+use crate::builtins::UnparsedBytes;
 use crate::builtins::WasmbinCountable;
-use crate::builtins::{Blob, RawBlob};
 #[cfg(feature = "exception-handling")]
 use crate::indices::ExceptionId;
 #[cfg(feature = "extended-name-section")]
@@ -125,12 +126,10 @@ pub struct ProducerVersionedName {
 /// A raw [custom section](https://webassembly.github.io/spec/core/binary/modules.html#custom-section).
 ///
 /// Used to represent custom sections with unknown semantics.
-#[derive(Wasmbin, CustomDebug, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawCustomSection {
     pub name: String,
-
-    #[debug(with = "custom_debug::hexbuf_str")]
-    pub data: Vec<u8>,
+    pub data: UnparsedBytes,
 }
 
 macro_rules! define_custom_sections {
@@ -184,7 +183,7 @@ macro_rules! define_custom_sections {
                     $($disc => CustomSection::$name(<$ty>::decode(r)?),)*
                     _ => CustomSection::Other(RawCustomSection {
                         name,
-                        data: <Vec<u8>>::decode(r)?
+                        data: UnparsedBytes::decode(r)?
                     })
                 })
             }
@@ -228,7 +227,7 @@ define_custom_sections! {
     /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
     SourceMappingUrl(String) = "sourceMappingURL",
     /// https://github.com/WebAssembly/tool-conventions/blob/9b80cd2339c648822bb845a083d9ffa6e20fb1ee/BuildId.md
-    BuildId(RawBlob) = "build_id",
+    BuildId(Vec<u8>) = "build_id",
 }
 
 /// [Import descriptor](https://webassembly.github.io/spec/core/binary/modules.html#binary-importdesc).
@@ -368,7 +367,7 @@ pub enum DataInit {
 pub struct Data {
     pub init: DataInit,
     #[debug(with = "custom_debug::hexbuf_str")]
-    pub blob: RawBlob,
+    pub blob: Vec<u8>,
 }
 
 mod sealed {
