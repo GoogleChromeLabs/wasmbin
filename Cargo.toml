@@ -3,6 +3,7 @@ name = "wasmbin"
 version = "0.5.1"
 authors = ["Ingvar Stepanyan <rreverser@google.com>"]
 edition = "2018"
+resolver = "2"
 license = "Apache-2.0"
 description = "A self-generating WebAssembly parser and serializer"
 repository = "https://github.com/GoogleChromeLabs/wasmbin"
@@ -29,6 +30,7 @@ exception-handling = []
 extended-name-section = []
 tail-call = []
 threads = []
+test = ["arbitrary", "wasmbin-derive/test"]
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -40,6 +42,7 @@ tempfile = "3.4.0"
 structopt = "0.3.26"
 indexmap = { version = "1.9.2", features = ["rayon"] }
 rayon = "1.7.0"
+wasmbin = { path = ".", features = ["test"] }
 
 [[bench]]
 name = "bench"

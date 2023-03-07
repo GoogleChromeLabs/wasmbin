@@ -268,7 +268,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
         }
     });
 
-    s.gen_impl(quote! {
+    let io = s.gen_impl(quote! {
         use crate::io::{Encode, Decode, DecodeWithDiscriminant, DecodeError, PathItem};
 
         gen impl Encode for @Self {
@@ -280,7 +280,36 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
         }
 
         #decode
-    })
+    });
+
+    if !(cfg!(feature = "test") && s.ast().generics.params.is_empty()) {
+        return io;
+    }
+
+    let type_name = &s.ast().ident;
+
+    let test_name = proc_macro2::Ident::new(
+        &format!("test_roundtrip_{}", type_name),
+        s.ast().ident.span(),
+    );
+
+    quote! {
+        #io
+
+        #[cfg(test)]
+        #[test]
+        #[allow(non_snake_case)]
+        fn #test_name() -> anyhow::Result<()> {
+            let arbitrary = <#type_name as arbitrary::Arbitrary>::arbitrary(&mut arbitrary::Unstructured::new(&[]))?;
+            let mut buf = Vec::new();
+            <#type_name as crate::io::Encode>::encode(&arbitrary, &mut buf)?;
+            let mut r = &buf[..];
+            let decoded = <#type_name as crate::io::Decode>::decode(&mut r)?;
+            assert_eq!(arbitrary, decoded);
+            assert_eq!(r.len(), 0);
+            Ok(())
+        }
+    }
 }
 
 fn wasmbin_countable_derive(s: Structure) -> proc_macro2::TokenStream {

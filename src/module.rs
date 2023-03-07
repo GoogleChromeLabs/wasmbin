@@ -32,7 +32,7 @@ encode_decode_as!(MagicAndVersion, {
     Err(DecodeErrorKind::InvalidMagic { actual }.into())
 });
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq)]
 #[repr(transparent)]
 struct ModuleRepr {
     magic_and_version: MagicAndVersion,

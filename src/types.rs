@@ -139,7 +139,7 @@ impl Debug for Limits {
     }
 }
 
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Arbitrary)]
 #[repr(u8)]
 enum LimitsRepr {
     Min { min: u32 } = 0x00,
@@ -152,7 +152,7 @@ encode_decode_as!(Limits, {
 });
 
 #[cfg(feature = "threads")]
-#[derive(Wasmbin)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Arbitrary)]
 #[repr(u8)]
 enum MemTypeRepr {
     Unshared(LimitsRepr),
