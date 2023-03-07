@@ -299,8 +299,8 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
         #[cfg(test)]
         #[test]
         #[allow(non_snake_case)]
-        fn #test_name() -> anyhow::Result<()> {
-            crate::test_roundtrip::<#type_name>()
+        fn #test_name() {
+            crate::test_roundtrip::<#type_name>();
         }
     }
 }

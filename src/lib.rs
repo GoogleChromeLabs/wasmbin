@@ -40,30 +40,35 @@ pub use module::Module;
 
 #[cfg(test)]
 fn test_roundtrip<
-    T: arbitrary::Arbitrary<'static> + std::fmt::Debug + io::Encode + io::Decode + Eq,
->() -> anyhow::Result<()> {
+    T: for<'a> arbitrary::Arbitrary<'a> + std::fmt::Debug + io::Encode + io::Decode + Eq,
+>() {
     use anyhow::Context;
 
-    let arbitrary = T::arbitrary(&mut arbitrary::Unstructured::new(&[]))?;
+    arbtest::builder().run(|u| {
+        let arbitrary = T::arbitrary(u)?;
 
-    let mut buf = Vec::new();
-    arbitrary.encode(&mut buf)?;
+        let mut buf = Vec::new();
+        arbitrary.encode(&mut buf).unwrap();
 
-    (|| -> anyhow::Result<()> {
-        let mut slice = &buf[..];
-        let decoded = T::decode(&mut slice)?;
-        assert_eq!(arbitrary, decoded);
-        anyhow::ensure!(
-            slice.is_empty(),
-            "{} leftover bytes after decoding",
-            slice.len()
-        );
+        (|| -> anyhow::Result<()> {
+            let mut slice = &buf[..];
+            let decoded = T::decode(&mut slice)?;
+            assert_eq!(arbitrary, decoded);
+            anyhow::ensure!(
+                slice.is_empty(),
+                "{} leftover bytes after decoding",
+                slice.len()
+            );
+            Ok(())
+        })()
+        .with_context(|| {
+            format!(
+                "Failed roundtrip\nValue: {type_name} {arbitrary:#?}\nRaw bytes: {buf:#X?}",
+                type_name = std::any::type_name::<T>()
+            )
+        })
+        .unwrap();
+
         Ok(())
-    })()
-    .with_context(|| {
-        format!(
-            "Failed roundtrip\nValue: {type_name} {arbitrary:#?}\nRaw bytes: {buf:#X?}",
-            type_name = std::any::type_name::<T>()
-        )
-    })
+    });
 }
