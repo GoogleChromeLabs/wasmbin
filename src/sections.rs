@@ -150,7 +150,7 @@ macro_rules! define_custom_sections {
                 #[doc = "`]("]
                 #[doc = $url]
                 #[doc = ") custom section."]
-                $name(Lazy<$ty>),
+                $name($ty),
             )*
             /// A custom section that is not recognized by this library.
             Other(RawCustomSection),
@@ -180,10 +180,13 @@ macro_rules! define_custom_sections {
 
         impl Decode for CustomSection {
             fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-                let raw = RawCustomSection::decode(r)?;
-                Ok(match raw.name.as_str() {
-                    $($disc => CustomSection::$name(Lazy::from_raw(raw.data)),)*
-                    _ => CustomSection::Other(raw)
+                let name = String::decode(r)?;
+                Ok(match name.as_str() {
+                    $($disc => CustomSection::$name(<$ty>::decode(r)?),)*
+                    _ => CustomSection::Other(RawCustomSection {
+                        name,
+                        data: <Vec<u8>>::decode(r)?
+                    })
                 })
             }
         }
@@ -195,8 +198,8 @@ macro_rules! define_custom_sections {
             ) -> Result<(), VisitError<E>> {
                 // Custom section decoding errors must be ignored.
                 drop(match self {
-                    $(CustomSection::$name(data) => data.visit_child(f),)*
-                    CustomSection::Other(raw) => raw.visit_child(f),
+                    $(CustomSection::$name(data) => Visit::visit_child(data, f),)*
+                    CustomSection::Other(raw) => Visit::visit_child(raw, f),
                 });
                 Ok(())
             }
@@ -207,8 +210,8 @@ macro_rules! define_custom_sections {
             ) -> Result<(), VisitError<E>> {
                 // Custom section decoding errors must be ignored.
                 drop(match self {
-                    $(CustomSection::$name(data) => data.visit_child_mut(f),)*
-                    CustomSection::Other(raw) => raw.visit_child_mut(f),
+                    $(CustomSection::$name(data) => Visit::visit_child_mut(data, f),)*
+                    CustomSection::Other(raw) => Visit::visit_child_mut(raw, f),
                 });
                 Ok(())
             }
@@ -218,9 +221,9 @@ macro_rules! define_custom_sections {
 
 define_custom_sections! {
     /// https://webassembly.github.io/spec/core/appendix/custom.html#name-section
-    Name(Vec<NameSubSection>) = "name",
+    Name(Lazy<Vec<NameSubSection>>) = "name",
     /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed7d0daff49808370cd93b6a6f0c962d76/ProducersSection.md
-    Producers(Vec<ProducerField>) = "producers",
+    Producers(Lazy<Vec<ProducerField>>) = "producers",
     /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#external-dwarf
     ExternalDebugInfo(String) = "external_debug_info",
     /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
