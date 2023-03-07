@@ -33,7 +33,7 @@ threads = []
 [dev-dependencies]
 criterion = "0.4.0"
 libtest-mimic = "0.6.0"
-wast = "54.0.1"
+wast = "55.0.0"
 fehler = "1.0.0"
 anyhow = { version = "1.0.69", features = ["backtrace"] }
 tempfile = "3.4.0"

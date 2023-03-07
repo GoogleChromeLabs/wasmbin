@@ -72,11 +72,42 @@ impl Decode for Module {
 
 impl Module {
     /// Decode a module from an arbitrary input.
+    ///
+    /// ## Example
+    ///
+    /// ```no_run
+    /// use std::fs::File;
+    /// use std::io::BufReader;
+    /// use wasmbin::Module;
+    ///
+    /// # fn main() -> Result<(), wasmbin::io::DecodeError> {
+    /// let file = File::open("module.wasm")?;
+    /// let mut reader = BufReader::new(file);
+    /// let module = Module::decode_from(reader)?;
+    /// println!("{module:#?}");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn decode_from(mut r: impl std::io::Read) -> Result<Module, DecodeError> {
         Self::decode(&mut r)
     }
 
     /// Encode the module into an arbitrary output.
+    ///
+    /// ## Example
+    ///
+    /// ```no_run
+    /// use std::fs::File;
+    /// use std::io::BufWriter;
+    /// use wasmbin::Module;
+    ///
+    /// # fn main() -> std::io::Result<()> {
+    /// let file = File::create("module.wasm")?;
+    /// let mut writer = BufWriter::new(file);
+    /// # let module = Module::default();
+    /// module.encode_into(writer)?;
+    /// # Ok(())
+    /// # }
     pub fn encode_into<W: std::io::Write>(&self, mut w: W) -> std::io::Result<W> {
         self.encode(&mut w)?;
         Ok(w)
@@ -89,12 +120,15 @@ impl Module {
     /// ```
     /// use wasmbin::{Module, sections::payload};
     ///
+    /// # fn main() -> Result<(), wasmbin::io::DecodeError> {
     /// # let module = Module::default();
     /// if let Some(imports) = module.find_std_section::<payload::Import>() {
-    ///    for import in imports {
+    ///    for import in imports.try_contents()? {
     ///       println!("Module imports a {:?} from {}.{}", import.desc, import.path.module, import.path.name);
     ///   }
     /// }
+    /// # Ok(())
+    /// # }
     pub fn find_std_section<T: StdPayload>(&self) -> Option<&Blob<T>> {
         self.sections.iter().find_map(Section::try_as)
     }
@@ -106,17 +140,19 @@ impl Module {
     /// ```
     /// use wasmbin::Module;
     /// use wasmbin::sections::{payload, Import, ImportPath, ImportDesc};
-    /// use wasmbin::indices::TypeId;
     ///
-    /// # let module = Module::default();
-    /// if let Some(imports) = module.find_std_section::<payload::Import>() {
-    ///    for import in imports {
+    /// # fn main() -> Result<(), wasmbin::io::DecodeError> {
+    /// # let mut module = Module::default();
+    /// if let Some(imports) = module.find_std_section_mut::<payload::Import>() {
+    ///    for import in imports.try_contents_mut()? {
     ///         // Compress references to the "env" module.
     ///         if import.path.module == "env" {
     ///             import.path.module = "a".to_owned();
     ///        }
     ///   }
     /// }
+    /// # Ok(())
+    /// # }
     pub fn find_std_section_mut<T: StdPayload>(&mut self) -> Option<&mut Blob<T>> {
         self.sections.iter_mut().find_map(Section::try_as_mut)
     }
@@ -133,9 +169,11 @@ impl Module {
     /// use wasmbin::sections::{payload, Import, ImportPath, ImportDesc};
     /// use wasmbin::indices::TypeId;
     ///
-    /// # let module = Module::default();
+    /// # fn main() -> Result<(), wasmbin::io::DecodeError> {
+    /// # let mut module = Module::default();
     /// module
     /// .find_or_insert_std_section(|| payload::Import::default())
+    /// .try_contents_mut()?
     /// .push(Import {
     ///     path: ImportPath {
     ///         module: "env".to_owned(),
@@ -143,6 +181,8 @@ impl Module {
     ///     },
     ///     desc: ImportDesc::Func(TypeId::from(42)),
     /// });
+    /// # Ok(())
+    /// # }
     pub fn find_or_insert_std_section<T: StdPayload>(
         &mut self,
         insert_callback: impl FnOnce() -> T,
