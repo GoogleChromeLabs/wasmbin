@@ -335,8 +335,3 @@ fn wasmbin_visit_derive(mut s: Structure) -> proc_macro2::TokenStream {
 decl_derive!([Wasmbin, attributes(wasmbin)] => wasmbin_derive);
 decl_derive!([WasmbinCountable] => wasmbin_countable_derive);
 decl_derive!([Visit] => wasmbin_visit_derive);
-
-#[proc_macro_derive(Noop)]
-pub fn noop_derive(_item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    Default::default()
-}

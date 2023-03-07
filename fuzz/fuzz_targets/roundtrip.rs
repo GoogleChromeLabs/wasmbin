@@ -19,8 +19,11 @@ use wasmbin::io::DecodeError;
 use wasmbin::visit::{Visit, VisitError};
 use wasmbin::Module;
 
-fn unlazify<T: Visit>(wasm: T) -> Result<T, DecodeError> {
-    match wasm.visit(|()| {}) {
+// Decode and actually visit all the lazy fields to trigger decoding errors if any.
+// Visit mutably to ensure that re-encoding doesn't simply reuse original raw bytes.
+fn decode_and_unlazify(bytes: &[u8]) -> Result<Module, DecodeError> {
+    let mut wasm = Module::decode_from(bytes)?;
+    match wasm.visit_mut(|()| {}) {
         Ok(()) => Ok(wasm),
         Err(err) => match err {
             VisitError::LazyDecode(err) => Err(err),
@@ -29,21 +32,28 @@ fn unlazify<T: Visit>(wasm: T) -> Result<T, DecodeError> {
     }
 }
 
-fuzz_target!(|module: Module| {
-    // We're using Vec as I/O destination, so this should never fail, except
-    // if the module itself is malformed.
-    // In that case, bail out.
-    let encoded = match module.encode_into(Vec::new()) {
-        Ok(encoded) => encoded,
-        Err(_) => return,
-    };
+enum PrintErr {}
+
+impl<E: std::error::Error> From<E> for PrintErr {
+    fn from(err: E) -> Self {
+        panic!("{}", err)
+    }
+}
+
+fn try_roundtrip(wasm_smith_bytes: &[u8]) -> Result<(), PrintErr> {
     // Check that we can re-decoded encoded data back.
-    let decoded = Module::decode_from(encoded.as_slice())
-        .and_then(unlazify)
-        .unwrap();
+    let my_module = decode_and_unlazify(wasm_smith_bytes)?;
+    // Re-encode with `wasmbin`.
+    let my_bytes = my_module.encode_into(Vec::new())?;
+    // wasm-smith and wasmbin are not guaranteed to produce same bytes.
+    // Instead, decode the module once again.
+    let my_module_roundtrip = decode_and_unlazify(&my_bytes)?;
     // Ensure that re-decoded module is equivalent to the original.
-    assert_eq!(module, decoded);
-    // Check that encoding again results in a deterministic output.
-    let encoded2 = decoded.encode_into(Vec::new()).unwrap();
-    assert_eq!(encoded, encoded2);
+    assert_eq!(my_module, my_module_roundtrip);
+    Ok(())
+}
+
+fuzz_target!(|module: wasm_smith::Module| {
+    let wasm_smith_bytes = module.to_bytes();
+    try_roundtrip(&wasm_smith_bytes).unwrap_or_else(|err| match err {});
 });

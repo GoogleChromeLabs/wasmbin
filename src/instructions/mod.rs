@@ -19,7 +19,6 @@ use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId}
 use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
 use crate::types::{BlockType, RefType, ValueType};
 use crate::visit::Visit;
-use crate::Arbitrary;
 use thiserror::Error;
 
 const OP_CODE_BLOCK_START: u8 = 0x02;
@@ -116,14 +115,14 @@ pub type Expression = Vec<Instruction>;
 impl crate::builtins::WasmbinCountable for Expression {}
 
 /// [Memory immediate argument](https://webassembly.github.io/spec/core/binary/instructions.html#memory-instructions).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MemArg {
     pub align: u32,
     pub offset: u32,
 }
 
 /// An [indirect call](https://webassembly.github.io/spec/core/binary/instructions.html#control-instructions).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct CallIndirect {
     pub ty: TypeId,
     pub table: TableId,
@@ -137,7 +136,7 @@ pub struct CallIndirect {
 /// moderately-sized modules. Instead, we follow the other WebAssembly parsers and represent them as
 /// a start (`BlockStart`, `LoopStart` or `IfStart`) instruction followed by the contents of the block,
 /// and an `End` instruction - all in the same flat instruction list.
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Instruction {
     Unreachable = 0x00,

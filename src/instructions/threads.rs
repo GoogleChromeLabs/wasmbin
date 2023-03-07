@@ -15,9 +15,8 @@
 use super::MemArg;
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
-use crate::Arbitrary;
 
-#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(transparent)]
 pub struct AlignedMemArg<const ALIGN: u32> {
     pub offset: u32,
@@ -54,7 +53,7 @@ pub type MemArg32 = AlignedMemArg<2>;
 pub type MemArg64 = AlignedMemArg<3>;
 
 /// [Atomic memory instructions](https://webassembly.github.io/threads/core/binary/instructions.html#atomic-memory-instructions).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Atomic {
     Wake(MemArg32) = 0x00,

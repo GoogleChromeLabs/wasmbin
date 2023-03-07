@@ -28,7 +28,6 @@ use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, W
 use crate::types::ExceptionType;
 use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
 use crate::visit::{Visit, VisitError};
-use crate::Arbitrary;
 use custom_debug::Debug as CustomDebug;
 use std::convert::TryFrom;
 use thiserror::Error;
@@ -36,7 +35,7 @@ use thiserror::Error;
 /// A [name association](https://webassembly.github.io/spec/core/appendix/custom.html#binary-namemap) key-value pair.
 ///
 /// Might also be used to represent an [indirect name association](https://webassembly.github.io/spec/core/appendix/custom.html#binary-indirectnamemap).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct NameAssoc<I, V = String> {
     pub index: I,
     pub value: V,
@@ -45,7 +44,7 @@ pub struct NameAssoc<I, V = String> {
 impl<I, V> WasmbinCountable for NameAssoc<I, V> {}
 
 /// [Name map](https://webassembly.github.io/spec/core/appendix/custom.html#binary-namemap).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct NameMap<I, V = String> {
     pub items: Vec<NameAssoc<I, V>>,
 }
@@ -54,7 +53,7 @@ pub struct NameMap<I, V = String> {
 pub type IndirectNameMap<I1, I2> = NameMap<I1, NameMap<I2>>;
 
 /// [Name subsection](https://webassembly.github.io/spec/core/appendix/custom.html#subsections).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum NameSubSection {
     /// [Module name](https://webassembly.github.io/spec/core/appendix/custom.html#module-names).
@@ -110,14 +109,14 @@ impl Decode for Vec<NameSubSection> {
 }
 
 /// [`producer`](https://github.com/WebAssembly/tool-conventions/blob/08bacbed7d0daff49808370cd93b6a6f0c962d76/ProducersSection.md#custom-section) field.
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ProducerField {
     pub name: String,
     pub values: Vec<ProducerVersionedName>,
 }
 
 /// [`producer`](https://github.com/WebAssembly/tool-conventions/blob/08bacbed7d0daff49808370cd93b6a6f0c962d76/ProducersSection.md#custom-section) `versioned-name` structure.
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ProducerVersionedName {
     pub name: String,
     pub version: String,
@@ -126,7 +125,7 @@ pub struct ProducerVersionedName {
 /// A raw [custom section](https://webassembly.github.io/spec/core/binary/modules.html#custom-section).
 ///
 /// Used to represent custom sections with unknown semantics.
-#[derive(Wasmbin, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, CustomDebug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawCustomSection {
     pub name: String,
 
@@ -141,7 +140,7 @@ macro_rules! define_custom_sections {
         /// This enum supports some non-standard custom sections commonly used in tooling, but is marked
         /// as non-exhaustive to allow for future additions that would transform some sections
         /// currently represented by the [`Other`](CustomSection::Other) variant into new variants.
-        #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone)]
+        #[derive(Debug, PartialEq, Eq, Hash, Clone)]
         #[non_exhaustive]
         pub enum CustomSection {
             $(
@@ -233,7 +232,7 @@ define_custom_sections! {
 }
 
 /// [Import descriptor](https://webassembly.github.io/spec/core/binary/modules.html#binary-importdesc).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ImportDesc {
     Func(TypeId) = 0x00,
@@ -245,28 +244,28 @@ pub enum ImportDesc {
 }
 
 /// [Import](https://webassembly.github.io/spec/core/binary/modules.html#import-section) path.
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct ImportPath {
     pub module: String,
     pub name: String,
 }
 
 /// A single [import](https://webassembly.github.io/spec/core/binary/modules.html#binary-import).
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Import {
     pub path: ImportPath,
     pub desc: ImportDesc,
 }
 
 /// A single [global](https://webassembly.github.io/spec/core/binary/modules.html#binary-global).
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Global {
     pub ty: GlobalType,
     pub init: Expression,
 }
 
 /// [Export descriptor](https://webassembly.github.io/spec/core/binary/modules.html#binary-exportdesc).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ExportDesc {
     Func(FuncId) = 0x00,
@@ -278,21 +277,21 @@ pub enum ExportDesc {
 }
 
 /// A single [export](https://webassembly.github.io/spec/core/binary/modules.html#binary-export).
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Export {
     pub name: String,
     pub desc: ExportDesc,
 }
 
 /// [Element kind](https://webassembly.github.io/spec/core/binary/modules.html#binary-elemkind).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ElemKind {
     FuncRef = 0x00,
 }
 
 /// A single [element](https://webassembly.github.io/spec/core/binary/modules.html#binary-elem).
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum Element {
     ActiveWithFuncs {
@@ -334,7 +333,7 @@ pub enum Element {
 }
 
 /// Number of repeated consecutive [locals](https://webassembly.github.io/spec/core/binary/modules.html#binary-local) of a single type.
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Locals {
     pub repeat: u32,
     pub ty: ValueType,
@@ -342,23 +341,21 @@ pub struct Locals {
 
 /// [Exception tag](https://webassembly.github.io/exception-handling/core/binary/modules.html#exception-section).
 #[cfg(feature = "exception-handling")]
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[wasmbin(discriminant = 0x00)]
 pub struct Exception {
     pub ty: TypeId,
 }
 
 /// [Function body](https://webassembly.github.io/spec/core/binary/modules.html#binary-func).
-#[derive(
-    Wasmbin, WasmbinCountable, Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit,
-)]
+#[derive(Wasmbin, WasmbinCountable, Debug, Default, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct FuncBody {
     pub locals: Vec<Locals>,
     pub expr: Expression,
 }
 
 /// [`Data`] segment initialization.
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum DataInit {
     Active { offset: Expression } = 0x00,
@@ -367,7 +364,7 @@ pub enum DataInit {
 }
 
 /// [Data segment](https://webassembly.github.io/spec/core/binary/modules.html#binary-data).
-#[derive(Wasmbin, WasmbinCountable, CustomDebug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, CustomDebug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Data {
     pub init: DataInit,
     #[debug(with = "custom_debug::hexbuf_str")]
@@ -398,7 +395,7 @@ macro_rules! define_sections {
         }
 
         /// [Module section](https://webassembly.github.io/spec/core/binary/modules.html#sections).
-        #[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+        #[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
         #[repr(u8)]
         pub enum Section {
             $($(# $attr)* $name($(# $ty_attr)* Blob<payload::$name>) = $disc,)*

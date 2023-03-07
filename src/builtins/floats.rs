@@ -14,13 +14,12 @@
 
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
-use crate::Arbitrary;
 
 /// A wrapper around floats that treats `NaN`s as equal.
 ///
 /// This is useful in instruction context, where we don't care
 /// about general floating number rules.
-#[derive(Wasmbin, Debug, Arbitrary, Clone, Visit)]
+#[derive(Wasmbin, Debug, Clone, Visit)]
 pub struct FloatConst<F> {
     /// The float value.
     pub value: F,

@@ -20,14 +20,13 @@ use crate::io::{
     encode_decode_as, Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin,
 };
 use crate::visit::Visit;
-use crate::Arbitrary;
 use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter};
 
 const OP_CODE_EMPTY_BLOCK: u8 = 0x40;
 
 /// [Value type](https://webassembly.github.io/spec/core/binary/types.html#value-types).
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum ValueType {
     /// [SIMD vector type](https://webassembly.github.io/spec/core/binary/types.html#vector-types).
@@ -41,7 +40,7 @@ pub enum ValueType {
 }
 
 /// [Block type](https://webassembly.github.io/spec/core/binary/instructions.html#control-instructions).
-#[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum BlockType {
     /// Block without a return value.
@@ -96,7 +95,7 @@ impl Decode for BlockType {
 }
 
 /// [Function type](https://webassembly.github.io/spec/core/binary/types.html#function-types).
-#[derive(Wasmbin, WasmbinCountable, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, PartialEq, Eq, Hash, Clone, Visit)]
 #[wasmbin(discriminant = 0x60)]
 pub struct FuncType {
     pub params: Vec<ValueType>,
@@ -123,7 +122,7 @@ impl Debug for FuncType {
 }
 
 /// [Limits](https://webassembly.github.io/spec/core/binary/types.html#limits) type.
-#[derive(Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Limits {
     pub min: u32,
     pub max: Option<u32>,
@@ -162,7 +161,7 @@ enum MemTypeRepr {
 
 /// [Memory type](https://webassembly.github.io/spec/core/binary/types.html#memory-types).
 #[cfg_attr(not(feature = "threads"), derive(Wasmbin))]
-#[derive(WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MemType {
     #[cfg(feature = "threads")]
     pub is_shared: bool,
@@ -178,7 +177,7 @@ encode_decode_as!(MemType, {
 });
 
 /// [Reference type](https://webassembly.github.io/spec/core/binary/types.html#reference-types).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(u8)]
 pub enum RefType {
     Func = 0x70,
@@ -186,14 +185,14 @@ pub enum RefType {
 }
 
 /// [Table type](https://webassembly.github.io/spec/core/binary/types.html#table-types).
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct TableType {
     pub elem_type: RefType,
     pub limits: Limits,
 }
 
 /// [Global type](https://webassembly.github.io/spec/core/binary/types.html#global-types).
-#[derive(Wasmbin, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct GlobalType {
     pub value_type: ValueType,
     pub mutable: bool,
@@ -201,7 +200,7 @@ pub struct GlobalType {
 
 /// [Exception tag type](https://webassembly.github.io/exception-handling/core/binary/types.html#tag-types).
 #[cfg(feature = "exception-handling")]
-#[derive(Wasmbin, WasmbinCountable, Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Wasmbin, WasmbinCountable, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[wasmbin(discriminant = 0x00)]
 pub struct ExceptionType {
     pub func_type: FuncType,

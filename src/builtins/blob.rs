@@ -15,10 +15,9 @@
 use crate::builtins::{Lazy, WasmbinCountable};
 use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
-use crate::Arbitrary;
 
 /// A length-prefixed blob of bytes.
-#[derive(Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawBlob<T = Vec<u8>> {
     #[allow(missing_docs)]
     pub contents: T,
@@ -77,7 +76,7 @@ impl<T: Decode> Decode for RawBlob<T> {
 }
 
 /// A length-prefixed blob that can be skipped over during decoding.
-#[derive(Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Default, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Blob<T: Decode> {
     /// Lazily-decoded contents of the blob.
     pub contents: Lazy<T>,

@@ -18,12 +18,11 @@ use crate::builtins::Blob;
 use crate::io::{encode_decode_as, Decode, DecodeError, DecodeErrorKind, Encode, Wasmbin};
 use crate::sections::{Section, StdPayload};
 use crate::visit::Visit;
-use crate::Arbitrary;
 use std::cmp::Ordering;
 
 const MAGIC_AND_VERSION: [u8; 8] = [b'\0', b'a', b's', b'm', 0x01, 0x00, 0x00, 0x00];
 
-#[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Visit)]
 struct MagicAndVersion;
 
 encode_decode_as!(MagicAndVersion, {
@@ -43,7 +42,7 @@ struct ModuleRepr {
 ///
 /// Unless you're doing something very specific, this will be your entry point to the library as it
 /// represents the module as a whole. Check out its fields for nested structures.
-#[derive(Debug, Default, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct Module {
     /// Module [sections](https://webassembly.github.io/spec/core/binary/modules.html#sections).
     ///

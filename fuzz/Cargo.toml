@@ -11,10 +11,11 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4.2"
+wasm-smith = "0.12.5"
 
 [dependencies.wasmbin]
 path = ".."
-features = ["proposals", "arbitrary"]
+features = ["proposals"]
 
 # Prevent this from interfering with workspaces
 [workspace]
