@@ -223,9 +223,9 @@ define_custom_sections! {
     /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed7d0daff49808370cd93b6a6f0c962d76/ProducersSection.md
     Producers(Lazy<Vec<ProducerField>>) = "producers",
     /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#external-dwarf
-    ExternalDebugInfo(String) = "external_debug_info",
+    ExternalDebugInfo(Lazy<String>) = "external_debug_info",
     /// https://github.com/WebAssembly/tool-conventions/blob/08bacbed/Debugging.md#source-maps
-    SourceMappingUrl(String) = "sourceMappingURL",
+    SourceMappingUrl(Lazy<String>) = "sourceMappingURL",
     /// https://github.com/WebAssembly/tool-conventions/blob/9b80cd2339c648822bb845a083d9ffa6e20fb1ee/BuildId.md
     BuildId(Vec<u8>) = "build_id",
 }
