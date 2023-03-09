@@ -117,7 +117,7 @@ impl crate::builtins::WasmbinCountable for Expression {}
 /// [Memory immediate argument](https://webassembly.github.io/spec/core/binary/instructions.html#memory-instructions).
 #[derive(Wasmbin, Debug, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct MemArg {
-    pub align: u32,
+    pub align_log2: u32,
     pub offset: u32,
 }
 

@@ -18,29 +18,29 @@ use crate::visit::Visit;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(transparent)]
-pub struct AlignedMemArg<const ALIGN: u32> {
+pub struct AlignedMemArg<const ALIGN_LOG2: u32> {
     pub offset: u32,
 }
 
-impl<const ALIGN: u32> From<AlignedMemArg<ALIGN>> for MemArg {
-    fn from(arg: AlignedMemArg<ALIGN>) -> MemArg {
+impl<const ALIGN_LOG2: u32> From<AlignedMemArg<ALIGN_LOG2>> for MemArg {
+    fn from(arg: AlignedMemArg<ALIGN_LOG2>) -> MemArg {
         MemArg {
-            align: ALIGN,
+            align_log2: ALIGN_LOG2,
             offset: arg.offset,
         }
     }
 }
 
-impl<const ALIGN: u32> Encode for AlignedMemArg<ALIGN> {
+impl<const ALIGN_LOG2: u32> Encode for AlignedMemArg<ALIGN_LOG2> {
     fn encode(&self, encoder: &mut impl std::io::Write) -> std::io::Result<()> {
         MemArg::from(self.clone()).encode(encoder)
     }
 }
 
-impl<const ALIGN: u32> Decode for AlignedMemArg<ALIGN> {
+impl<const ALIGN_LOG2: u32> Decode for AlignedMemArg<ALIGN_LOG2> {
     fn decode(decoder: &mut impl std::io::Read) -> Result<Self, DecodeError> {
         let arg = MemArg::decode(decoder)?;
-        if arg.align != ALIGN {
+        if arg.align_log2 != ALIGN_LOG2 {
             return Err(DecodeError::unsupported_discriminant::<Self>(arg.offset));
         }
         Ok(Self { offset: arg.offset })
