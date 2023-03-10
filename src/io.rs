@@ -144,7 +144,7 @@ pub trait Decode: Sized {
 macro_rules! encode_decode_as {
     ($ty:ty, {
         $($lhs:tt <=> $rhs:tt,)*
-    } $(, |$other:pat| $other_handler:expr)?) => {
+    } $(, |$other:pat_param| $other_handler:expr)?) => {
         impl $crate::io::Encode for $ty {
             #[allow(unused_parens)]
             fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {

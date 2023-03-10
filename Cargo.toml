@@ -2,7 +2,7 @@
 name = "wasmbin"
 version = "0.5.1"
 authors = ["Ingvar Stepanyan <rreverser@google.com>"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 description = "A self-generating WebAssembly parser and serializer"
 repository = "https://github.com/GoogleChromeLabs/wasmbin"
