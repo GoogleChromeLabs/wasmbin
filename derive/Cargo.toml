@@ -1,6 +1,6 @@
 [package]
 name = "wasmbin-derive"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Ingvar Stepanyan <rreverser@google.com>"]
 edition = "2018"
 license = "Apache-2.0"
