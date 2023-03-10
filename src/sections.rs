@@ -84,7 +84,7 @@ impl Encode for [NameSubSection] {
 }
 
 impl Decode for Vec<NameSubSection> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let mut sub = Vec::new();
         while let Some(disc) = Option::decode(r)? {
             let i = sub.len();
@@ -145,7 +145,7 @@ macro_rules! define_custom_sections {
         }
 
         impl Decode for CustomSection {
-            fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+            fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
                 let raw = RawCustomSection::decode(r)?;
                 Ok(match raw.name.as_ref() {
                     $($disc => CustomSection::$name(Lazy::from_raw(raw.data)),)*
@@ -527,7 +527,7 @@ impl Encode for [Section] {
 }
 
 impl Decode for Vec<Section> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let mut sections = Vec::new();
         let mut section_order_tracker = SectionOrderTracker::default();
         while let Some(disc) = Option::decode(r)? {

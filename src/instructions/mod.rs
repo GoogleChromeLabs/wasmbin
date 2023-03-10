@@ -82,7 +82,7 @@ impl Encode for [Instruction] {
 }
 
 impl Decode for Vec<Instruction> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let mut res = Vec::new();
         let mut depth_tracker = DepthTracker::default();
         loop {

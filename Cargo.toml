@@ -50,6 +50,7 @@ harness = false
 
 [profile.bench]
 debug = true
+lto = true
 
 [[test]]
 name = "spec"

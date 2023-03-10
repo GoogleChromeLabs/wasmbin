@@ -16,9 +16,10 @@ use crate::io::{Decode, DecodeError, Encode};
 use crate::visit::Visit;
 use bytes::Bytes;
 use std::convert::TryFrom;
+use try_buf::TryBuf;
 
 impl<const N: usize> Decode for [u8; N] {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let mut dest = [0_u8; N];
         r.try_copy_to_slice(&mut dest)?;
         Ok(dest)
@@ -38,20 +39,20 @@ impl Encode for [u8] {
 }
 
 impl Decode for u8 {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         Ok(r.try_get_u8()?)
     }
 }
 
 impl Decode for Option<u8> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         Ok(r.try_get_u8().ok())
     }
 }
 
 impl Decode for Bytes {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
-        Ok(r.copy_to_bytes(r.remaining()))
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
+        Ok(std::mem::take(r))
     }
 }
 
@@ -66,7 +67,7 @@ macro_rules! def_integer {
         }
 
         impl Decode for $ty {
-            fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+            fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
                 const LIMIT: usize = (std::mem::size_of::<$ty>() * 8 / 7) + 1;
 
                 let r = bytes::Buf::take(r, LIMIT);
@@ -96,7 +97,7 @@ impl Encode for usize {
 }
 
 impl Decode for usize {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         Ok(usize::try_from(u32::decode(r)?)?)
     }
 }

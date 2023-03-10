@@ -56,7 +56,7 @@ where
 }
 
 impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let count = usize::decode(r)?;
         (0..count)
             .map(|i| T::decode(r).map_err(move |err| err.in_path(PathItem::Index(i))))

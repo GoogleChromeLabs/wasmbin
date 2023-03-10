@@ -60,7 +60,7 @@ impl<const MAX: u8> LaneId<MAX> {
 }
 
 impl<const MAX: u8> Decode for LaneId<MAX> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         Self::decode_from(u8::decode(r)?)
     }
 }
@@ -86,7 +86,7 @@ impl<const MAX: u8> Encode for [LaneId<MAX>] {
 }
 
 impl<const MAX: u8, const N: usize> Decode for [LaneId<MAX>; N] {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let bytes = <[u8; N]>::decode(r)?;
         for &b in &bytes {
             <LaneId<MAX>>::decode_from(b)?;

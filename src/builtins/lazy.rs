@@ -73,7 +73,7 @@ impl<T: Encode> Encode for Lazy<T> {
 }
 
 impl<T: Decode> Decode for Lazy<T> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         Bytes::decode(r).map(Self::from_raw)
     }
 }
@@ -84,8 +84,8 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Lazy<T> {
     }
 }
 
-fn decode_raw<T: Decode>(mut raw: &[u8]) -> Result<T, DecodeError> {
-    let value = T::decode(&mut raw)?;
+fn decode_raw<T: Decode>(raw: &mut Bytes) -> Result<T, DecodeError> {
+    let value = T::decode(raw)?;
     if !raw.is_empty() {
         return Err(DecodeErrorKind::UnrecognizedData.into());
     }
@@ -95,7 +95,9 @@ fn decode_raw<T: Decode>(mut raw: &[u8]) -> Result<T, DecodeError> {
 impl<T: Decode> Lazy<T> {
     pub fn try_contents(&self) -> Result<&T, DecodeError> {
         match &self.status {
-            LazyStatus::FromInput { raw, parsed } => parsed.get_or_try_init(|| decode_raw(raw)),
+            LazyStatus::FromInput { raw, parsed } => {
+                parsed.get_or_try_init(|| decode_raw(&mut raw.clone()))
+            }
             LazyStatus::Output { value } => Ok(value),
         }
     }
@@ -120,9 +122,9 @@ impl<T: Decode> Lazy<T> {
 
     pub fn try_into_contents(self) -> Result<T, DecodeError> {
         match self.status {
-            LazyStatus::FromInput { raw, parsed } => match parsed.into_inner() {
+            LazyStatus::FromInput { mut raw, parsed } => match parsed.into_inner() {
                 Some(value) => Ok(value),
-                None => decode_raw(&raw),
+                None => decode_raw(&mut raw),
             },
             LazyStatus::Output { value } => Ok(value),
         }

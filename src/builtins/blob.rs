@@ -17,6 +17,7 @@ use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 use crate::Arbitrary;
 use bytes::{Buf, Bytes};
+use try_buf::TryBuf;
 
 #[derive(Debug, Arbitrary, PartialEq, Eq, Hash, Clone, Visit)]
 pub struct RawBlob<T = Bytes> {
@@ -32,9 +33,9 @@ impl<T: AsRef<[u8]>> Encode for RawBlob<T> {
 }
 
 impl<T: Decode> Decode for RawBlob<T> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let size = usize::decode(r)?;
-        let mut taken = Buf::take(r, size);
+        let mut taken = r.try_copy_to_bytes(size)?;
         let contents = T::decode(&mut taken)?;
         if taken.has_remaining() {
             return Err(DecodeErrorKind::UnrecognizedData.into());
@@ -90,7 +91,7 @@ impl<T: Decode + Encode> Encode for Blob<T> {
 }
 
 impl<T: Decode> Decode for Blob<T> {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let contents: Lazy<T> = RawBlob::decode(r)?.contents;
         Ok(Self { contents })
     }

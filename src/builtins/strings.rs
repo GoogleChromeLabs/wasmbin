@@ -32,7 +32,7 @@ impl Encode for String {
 }
 
 impl Decode for String {
-    fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+    fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
         let bytes = <RawBlob<bytes::Bytes>>::decode(r)?;
         Ok(String::try_from(bytes.contents)?)
     }

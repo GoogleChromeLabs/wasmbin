@@ -205,7 +205,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     gen impl DecodeWithDiscriminant for @Self {
                         type Discriminant = #repr;
 
-                        fn maybe_decode_with_discriminant(discriminant: #repr, r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Option<Self>, DecodeError> {
+                        fn maybe_decode_with_discriminant(discriminant: #repr, r: &mut bytes::Bytes) -> Result<Option<Self>, DecodeError> {
                             Ok(Some(match discriminant {
                                 #decoders
                                 _ => #decode_other
@@ -214,7 +214,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     }
 
                     gen impl Decode for @Self {
-                        fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+                        fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
                             DecodeWithDiscriminant::decode_without_discriminant(r)
                         }
                     }
@@ -233,7 +233,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                         gen impl DecodeWithDiscriminant for @Self {
                             type Discriminant = u8;
 
-                            fn maybe_decode_with_discriminant(discriminant: u8, r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Option<Self>, DecodeError> {
+                            fn maybe_decode_with_discriminant(discriminant: u8, r: &mut bytes::Bytes) -> Result<Option<Self>, DecodeError> {
                                 match discriminant {
                                     #discriminant => #decode.map(Some),
                                     _ => Ok(None),
@@ -242,7 +242,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                         }
 
                         gen impl Decode for @Self {
-                            fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+                            fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
                                 DecodeWithDiscriminant::decode_without_discriminant(r)
                             }
                         }
@@ -252,7 +252,7 @@ fn wasmbin_derive(s: Structure) -> proc_macro2::TokenStream {
                     quote! {},
                     quote! {
                         gen impl Decode for @Self {
-                            fn decode(r: &mut (impl try_buf::TryBuf + bytes::Buf)) -> Result<Self, DecodeError> {
+                            fn decode(r: &mut bytes::Bytes) -> Result<Self, DecodeError> {
                                 #decode
                             }
                         }
