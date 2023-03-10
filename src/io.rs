@@ -136,9 +136,59 @@ pub trait Encode {
 }
 
 /// A trait for types that can be decoded from a binary stream.
-pub trait Decode: Sized {
+pub trait Decode: 'static + Sized {
     /// Decodes the value from the given reader.
     fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError>;
+}
+
+pub struct DecodeIter<R, I: DecodeAsIter> {
+    reader: R,
+    state: I::State,
+    index: usize,
+}
+
+impl<R: std::io::Read, I: DecodeAsIter> Iterator for DecodeIter<R, I> {
+    type Item = Result<I, DecodeError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(
+            match I::decode_iter_next(&mut self.reader, &mut self.state).transpose()? {
+                Ok(item) => {
+                    self.index += 1;
+                    Ok(item)
+                }
+                Err(err) => Err(err.in_path(PathItem::Index(self.index))),
+            },
+        )
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match I::decode_iter_count(&self.state) {
+            Some(count) => (count, Some(count)),
+            None => (0, None),
+        }
+    }
+}
+
+pub trait DecodeAsIter: Decode {
+    type State: Default;
+
+    fn decode_iter_next(
+        r: &mut impl std::io::Read,
+        state: &mut Self::State,
+    ) -> Result<Option<Self>, DecodeError>;
+
+    fn decode_iter_count(_state: &Self::State) -> Option<usize> {
+        None
+    }
+
+    fn decode_iter<R: std::io::Read>(reader: R) -> DecodeIter<R, Self> {
+        DecodeIter {
+            reader,
+            state: Default::default(),
+            index: 0,
+        }
+    }
 }
 
 macro_rules! encode_decode_as {

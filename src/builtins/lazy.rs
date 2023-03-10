@@ -13,11 +13,12 @@
 // limitations under the License.
 
 use crate::builtins::WasmbinCountable;
-use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
+use crate::io::{Decode, DecodeAsIter, DecodeError, DecodeErrorKind, DecodeIter, Encode};
 use crate::visit::{Visit, VisitError};
 use custom_debug::Debug as CustomDebug;
 use once_cell::sync::OnceCell;
 use std::hash::Hash;
+use std::io::Cursor;
 
 /// A storage for unparsed bytes.
 ///
@@ -246,6 +247,44 @@ impl<T: Decode + Visit> Visit for Lazy<T> {
         match self.try_contents_mut() {
             Ok(contents) => contents.visit_child_mut(f),
             Err(err) => Err(VisitError::LazyDecode(err)),
+        }
+    }
+}
+
+pub enum LazyIter<T: DecodeAsIter> {
+    Lazy(DecodeIter<Cursor<UnparsedBytes>, T>),
+    Ready(std::vec::IntoIter<T>),
+}
+
+impl<T: DecodeAsIter> Iterator for LazyIter<T> {
+    type Item = Result<T, DecodeError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            LazyIter::Lazy(iter) => iter.next(),
+            LazyIter::Ready(iter) => iter.next().map(Ok),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            LazyIter::Lazy(iter) => iter.size_hint(),
+            LazyIter::Ready(iter) => iter.size_hint(),
+        }
+    }
+}
+
+impl<T: DecodeAsIter> IntoIterator for Lazy<Vec<T>> {
+    type Item = Result<T, DecodeError>;
+    type IntoIter = LazyIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.status {
+            LazyStatus::FromInput { raw, parsed } => match parsed.into_inner() {
+                Some(value) => LazyIter::Ready(value.into_iter()),
+                None => LazyIter::Lazy(T::decode_iter(Cursor::new(raw))),
+            },
+            LazyStatus::Output { value } => LazyIter::Ready(value.into_iter()),
         }
     }
 }

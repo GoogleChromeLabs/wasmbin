@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::builtins::{Lazy, UnparsedBytes, WasmbinCountable};
-use crate::io::{Decode, DecodeError, DecodeErrorKind, Encode};
+use crate::io::{Decode, DecodeAsIter, DecodeError, DecodeErrorKind, Encode};
 use crate::visit::Visit;
 
 impl Encode for [u8] {
@@ -93,5 +93,14 @@ impl<T: Decode> From<T> for Blob<T> {
         Blob {
             contents: value.into(),
         }
+    }
+}
+
+impl<T: DecodeAsIter> IntoIterator for Blob<Vec<T>> {
+    type Item = Result<T, DecodeError>;
+    type IntoIter = super::lazy::LazyIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.contents.into_iter()
     }
 }

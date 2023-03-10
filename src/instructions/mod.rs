@@ -16,7 +16,7 @@
 
 use crate::builtins::FloatConst;
 use crate::indices::{FuncId, GlobalId, LabelId, LocalId, MemId, TableId, TypeId};
-use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
+use crate::io::{Decode, DecodeAsIter, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
 use crate::types::{BlockType, RefType, ValueType};
 use crate::visit::Visit;
 use thiserror::Error;
@@ -37,7 +37,7 @@ impl From<DepthError> for std::io::Error {
 }
 
 #[derive(Default)]
-struct DepthTracker {
+pub struct DepthTracker {
     depth: u32,
 }
 
@@ -82,30 +82,26 @@ impl Encode for [Instruction] {
     }
 }
 
-impl Decode for Vec<Instruction> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut res = Vec::new();
-        let mut depth_tracker = DepthTracker::default();
-        loop {
-            let op_code = u8::decode(r)?;
-            match op_code {
-                OP_CODE_BLOCK_START | OP_CODE_LOOP_START | OP_CODE_IF_START => {
-                    depth_tracker.inc();
-                }
-                OP_CODE_END => {
-                    if depth_tracker.try_dec().is_err() {
-                        break;
-                    }
-                }
-                _ => {}
+impl DecodeAsIter for Instruction {
+    type State = DepthTracker;
+
+    fn decode_iter_next(
+        r: &mut impl std::io::Read,
+        depth_tracker: &mut DepthTracker,
+    ) -> Result<Option<Self>, DecodeError> {
+        let op_code = u8::decode(r)?;
+        match op_code {
+            OP_CODE_BLOCK_START | OP_CODE_LOOP_START | OP_CODE_IF_START => {
+                depth_tracker.inc();
             }
-            let i = res.len();
-            res.push(
-                Instruction::decode_with_discriminant(op_code, r)
-                    .map_err(move |err| err.in_path(PathItem::Index(i)))?,
-            );
+            OP_CODE_END => {
+                if depth_tracker.try_dec().is_err() {
+                    return Ok(None);
+                }
+            }
+            _ => {}
         }
-        Ok(res)
+        Instruction::decode_with_discriminant(op_code, r).map(Some)
     }
 }
 

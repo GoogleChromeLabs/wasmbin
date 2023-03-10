@@ -24,7 +24,8 @@ use crate::indices::ExceptionId;
 use crate::indices::{DataId, ElemId, LabelId};
 use crate::indices::{FuncId, GlobalId, LocalId, MemId, TableId, TypeId};
 use crate::instructions::Expression;
-use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, PathItem, Wasmbin};
+use crate::io::DecodeAsIter;
+use crate::io::{Decode, DecodeError, DecodeWithDiscriminant, Encode, Wasmbin};
 #[cfg(feature = "exception-handling")]
 use crate::types::ExceptionType;
 use crate::types::{FuncType, GlobalType, MemType, RefType, TableType, ValueType};
@@ -95,17 +96,16 @@ impl Encode for [NameSubSection] {
     }
 }
 
-impl Decode for Vec<NameSubSection> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut sub = Vec::new();
-        while let Some(disc) = Option::decode(r)? {
-            let i = sub.len();
-            sub.push(
-                NameSubSection::decode_with_discriminant(disc, r)
-                    .map_err(move |err| err.in_path(PathItem::Index(i)))?,
-            );
-        }
-        Ok(sub)
+impl crate::io::DecodeAsIter for NameSubSection {
+    type State = ();
+
+    fn decode_iter_next(
+        r: &mut impl std::io::Read,
+        _state: &mut (),
+    ) -> Result<Option<Self>, DecodeError> {
+        <Option<u8>>::decode(r)?
+            .map(|disc| NameSubSection::decode_with_discriminant(disc, r))
+            .transpose()
     }
 }
 
@@ -571,7 +571,7 @@ impl From<SectionOrderError> for std::io::Error {
     }
 }
 
-struct SectionOrderTracker {
+pub struct SectionOrderTracker {
     last_kind: Kind,
 }
 
@@ -612,20 +612,19 @@ impl Encode for [Section] {
     }
 }
 
-impl Decode for Vec<Section> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let mut sections = Vec::new();
-        let mut section_order_tracker = SectionOrderTracker::default();
-        while let Some(disc) = Option::decode(r)? {
-            let i = sections.len();
-            (|| -> Result<(), DecodeError> {
+impl DecodeAsIter for Section {
+    type State = SectionOrderTracker;
+
+    fn decode_iter_next(
+        r: &mut impl std::io::Read,
+        order_tracker: &mut SectionOrderTracker,
+    ) -> Result<Option<Self>, DecodeError> {
+        <Option<u8>>::decode(r)?
+            .map(|disc| {
                 let section = Section::decode_with_discriminant(disc, r)?;
-                section_order_tracker.try_add(&section)?;
-                sections.push(section);
-                Ok(())
-            })()
-            .map_err(move |err| err.in_path(PathItem::Index(i)))?;
-        }
-        Ok(sections)
+                order_tracker.try_add(&section)?;
+                Ok(section)
+            })
+            .transpose()
     }
 }

@@ -12,13 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::io::{Decode, DecodeError, Encode, PathItem};
+use crate::io::{Decode, DecodeAsIter, DecodeError, Encode};
 use crate::visit::Visit;
 
 pub(crate) use wasmbin_derive::WasmbinCountable;
 
 /// A trait for types that should be count-prefixed when encoded as a list.
 pub(crate) trait WasmbinCountable {}
+
+impl<T: WasmbinCountable + Decode> DecodeAsIter for T {
+    type State = Option<u32>;
+
+    fn decode_iter_next(
+        r: &mut impl std::io::Read,
+        count: &mut Option<u32>,
+    ) -> Result<Option<Self>, DecodeError> {
+        // Decode count on first access.
+        let count = match count {
+            Some(count) => count,
+            None => count.insert(u32::decode(r)?),
+        };
+        // Decrease count by one and check if we reached zero.
+        match count.checked_sub(1) {
+            Some(new_count) => *count = new_count,
+            None => return Ok(None),
+        }
+        // Otherwise decode the next item.
+        T::decode(r).map(Some)
+    }
+
+    fn decode_iter_count(count: &Option<u32>) -> Option<usize> {
+        count.map(|count| count as usize)
+    }
+}
+
+impl<T: DecodeAsIter> Decode for Vec<T> {
+    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
+        T::decode_iter(r).collect()
+    }
+}
 
 impl<T: WasmbinCountable + Encode> Encode for [T] {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
@@ -36,15 +68,6 @@ where
 {
     fn encode(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
         self.as_slice().encode(w)
-    }
-}
-
-impl<T: WasmbinCountable + Decode> Decode for Vec<T> {
-    fn decode(r: &mut impl std::io::Read) -> Result<Self, DecodeError> {
-        let count = usize::decode(r)?;
-        (0..count)
-            .map(|i| T::decode(r).map_err(move |err| err.in_path(PathItem::Index(i))))
-            .collect()
     }
 }
 
