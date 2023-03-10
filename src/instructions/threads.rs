@@ -16,6 +16,7 @@ use super::MemArg;
 use crate::io::{Decode, DecodeError, Encode, Wasmbin};
 use crate::visit::Visit;
 
+/// Variant of [`MemArg`] with a fixed compile-time alignment.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Visit)]
 #[repr(transparent)]
 pub struct AlignedMemArg<const ALIGN_LOG2: u32> {
