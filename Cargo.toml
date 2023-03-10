@@ -28,6 +28,7 @@ exception-handling = []
 extended-name-section = []
 tail-call = []
 threads = []
+nightly = []
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -54,4 +55,4 @@ harness = false
 [workspace]
 
 [package.metadata.docs.rs]
-features = ["proposals"]
+all-features = true
