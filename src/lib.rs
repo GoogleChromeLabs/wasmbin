@@ -12,7 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![warn(clippy::all, clippy::pedantic)]
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    unused_qualifications,
+    unused_macros,
+    unused_lifetimes,
+    single_use_lifetimes
+)]
 #![allow(
     clippy::missing_errors_doc,
     clippy::match_bool,

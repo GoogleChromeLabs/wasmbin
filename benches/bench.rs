@@ -38,7 +38,7 @@ fn deep_module() -> Module {
             locals: Default::default(),
             expr,
         })]
-        .into()]
+        .into()],
     }
 }
 

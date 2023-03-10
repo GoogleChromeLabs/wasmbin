@@ -19,7 +19,6 @@
 use crate::io::{DecodeError, PathItem};
 use std::convert::Infallible;
 use thiserror::Error;
-
 pub(crate) use wasmbin_derive::Visit;
 
 /// Error type for [Visit] traversals.

@@ -14,10 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::builtins::Blob;
-use crate::builtins::Lazy;
-use crate::builtins::UnparsedBytes;
-use crate::builtins::WasmbinCountable;
+use crate::builtins::{Blob, Lazy, UnparsedBytes, WasmbinCountable};
 #[cfg(feature = "exception-handling")]
 use crate::indices::ExceptionId;
 #[cfg(feature = "extended-name-section")]

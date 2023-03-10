@@ -20,11 +20,9 @@ use rayon::prelude::*;
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
 use std::sync::Arc;
-use wasmbin::{
-    io::DecodeError,
-    visit::{Visit, VisitError},
-    Module,
-};
+use wasmbin::io::DecodeError;
+use wasmbin::visit::{Visit, VisitError};
+use wasmbin::Module;
 use wast::lexer::Lexer;
 use wast::parser::{parse, ParseBuffer};
 use wast::{QuoteWat, Wast};

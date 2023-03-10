@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use crate::io::{Decode, DecodeError, Encode, PathItem};
-use crate::visit::Visit;
-
+use crate::visit::{Visit, VisitError};
 pub(crate) use wasmbin_derive::WasmbinCountable;
 
 /// A trait for types that should be count-prefixed when encoded as a list.
@@ -53,10 +52,10 @@ macro_rules! impl_visit_for_iter {
         fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
             &'a self,
             f: &mut F,
-        ) -> Result<(), crate::visit::VisitError<E>> {
+        ) -> Result<(), VisitError<E>> {
             for (i, v) in self.iter().enumerate() {
                 v.visit_child(f)
-                    .map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
+                    .map_err(move |err| err.in_path(PathItem::Index(i)))?;
             }
             Ok(())
         }
@@ -64,10 +63,10 @@ macro_rules! impl_visit_for_iter {
         fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
             &mut self,
             f: &mut F,
-        ) -> Result<(), crate::visit::VisitError<E>> {
+        ) -> Result<(), VisitError<E>> {
             for (i, v) in self.iter_mut().enumerate() {
                 v.visit_child_mut(f)
-                    .map_err(move |err| err.in_path(crate::io::PathItem::Index(i)))?;
+                    .map_err(move |err| err.in_path(PathItem::Index(i)))?;
             }
             Ok(())
         }
@@ -82,11 +81,11 @@ impl<T: Visit, const N: usize> Visit for [T; N] {
     impl_visit_for_iter!();
 }
 
-impl<T: crate::visit::Visit> crate::visit::Visit for Option<T> {
+impl<T: Visit> Visit for Option<T> {
     fn visit_children<'a, VisitT: 'static, E, F: FnMut(&'a VisitT) -> Result<(), E>>(
         &'a self,
         f: &mut F,
-    ) -> Result<(), crate::visit::VisitError<E>> {
+    ) -> Result<(), VisitError<E>> {
         if let Some(v) = self {
             v.visit_child(f)?;
         }
@@ -96,7 +95,7 @@ impl<T: crate::visit::Visit> crate::visit::Visit for Option<T> {
     fn visit_children_mut<VisitT: 'static, E, F: FnMut(&mut VisitT) -> Result<(), E>>(
         &mut self,
         f: &mut F,
-    ) -> Result<(), crate::visit::VisitError<E>> {
+    ) -> Result<(), VisitError<E>> {
         if let Some(v) = self {
             v.visit_child_mut(f)?;
         }
