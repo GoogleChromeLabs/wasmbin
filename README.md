@@ -1,13 +1,3 @@
-# wasmbin
+This repository is archived as the author no longer works at Google.
 
-wasmbin is a library implementing parsing and serialization WebAssembly binaries.
-
-**Announcement blog post:** https://rreverser.com/wasmbin-yet-another-webassembly-parser-serializer/
-
-**Public API:** https://docs.rs/wasmbin/latest/wasmbin/module/struct.Module.html
-
-## TL;DR
-
-This crate intends to provide a low-level representation of the WebAssembly module that is fully described by Rust type system rather than smart accessors. It also leverages the said type system in conjunction with custom proc-macros functionality to autogenerate parsing/serialization/visitation code for any complex types (structures and enums).
-
-On the user's side this approach allows any type can be used independently to represent/parse/serialize only part of the module, while on the maintainers' side it trivialises adding and testing new WebAssembly features, boiling such changes down to addition of new fields and variants, without having to add custom implementations too.
+The continued development of this project has moved to [a personal fork](https://github.com/RReverser/wasmbin).
